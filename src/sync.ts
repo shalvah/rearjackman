@@ -16,25 +16,38 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function parseRetryAfterMs(header: string | null, fallbackMs: number): number {
+  if (!header) return fallbackMs;
+  // Try as a number of seconds first
+  const seconds = parseFloat(header);
+  if (!isNaN(seconds)) return Math.ceil(seconds) * 1000;
+  // Try as an HTTP date string (e.g. "Fri, 01 Mar 2026 12:00:00 GMT")
+  const date = new Date(header);
+  if (!isNaN(date.getTime())) return Math.max(0, date.getTime() - Date.now());
+  return fallbackMs;
+}
+
 async function jolpicaFetch<T>(path: string): Promise<JolpicaResponse<T>> {
   const url = `${JOLPICA_BASE}${path}?limit=100`;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    console.log(`[sync] GET ${path}${attempt > 0 ? ` (attempt ${attempt + 1})` : ''}`);
     const res = await fetch(url);
 
     if (res.status === 429) {
-      // Respect Retry-After header if present, otherwise exponential backoff
       const retryAfter = res.headers.get('Retry-After');
-      const waitMs = retryAfter
-        ? parseInt(retryAfter) * 1000
-        : 1000 * Math.pow(2, attempt); // 1s, 2s, 4s, 8s
+      const fallbackMs = 1000 * Math.pow(2, attempt); // 1s, 2s, 4s, 8s
+      const waitMs = parseRetryAfterMs(retryAfter, fallbackMs);
       if (attempt < MAX_RETRIES) {
+        console.warn(`[sync] 429 rate limited on ${path} — backing off ${waitMs}ms (attempt ${attempt + 1}/${MAX_RETRIES})${retryAfter ? ` [Retry-After: ${retryAfter}]` : ''}`);
         await sleep(waitMs);
         continue;
       }
+      console.error(`[sync] 429 rate limited on ${path} — max retries reached`);
     }
 
     if (!res.ok) {
+      console.error(`[sync] HTTP ${res.status} on ${path}`);
       throw new Error(`Jolpica fetch failed: ${res.status} ${url}`);
     }
 
