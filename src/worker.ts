@@ -42,6 +42,17 @@ export default {
       return errorResponse(err instanceof Error ? err.message : 'Unknown error');
     }
   },
+
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    // Sync the current season — runs on cron schedule defined in wrangler.toml
+    const season = new Date().getFullYear();
+    console.log(`[cron] Starting sync for ${season} season`);
+    ctx.waitUntil(
+      syncSeason(season, env.DB)
+        .then((result) => console.log(`[cron] Sync complete:`, JSON.stringify(result)))
+        .catch((err) => console.error(`[cron] Sync failed:`, err))
+    );
+  },
 };
 
 // ---- Route handlers ----
