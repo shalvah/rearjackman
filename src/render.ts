@@ -39,7 +39,7 @@ function layout(title: string, body: string): string {
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
 
-    h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 8px; }
+    h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 8px; }
     h2 { font-size: 1.1rem; font-weight: 600; margin: 32px 0 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
     h3 { font-size: 0.95rem; font-weight: 600; margin: 0 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 
@@ -87,9 +87,6 @@ function layout(title: string, body: string): string {
       gap: 24px;
       margin-bottom: 8px;
     }
-    @media (max-width: 640px) {
-      .standings-grid { grid-template-columns: 1fr; }
-    }
 
     .standings-box {
       background: var(--surface);
@@ -104,7 +101,7 @@ function layout(title: string, body: string): string {
       padding-bottom: 20px;
       border-bottom: 2px solid var(--accent);
     }
-    .race-header .meta { color: var(--muted); font-size: 0.85rem; margin-top: 6px; }
+    .race-header .meta { color: var(--muted); font-size: 0.85rem; margin-top: 6px; line-height: 1.8; }
     .race-header .round-badge {
       display: inline-block;
       background: var(--accent);
@@ -117,30 +114,87 @@ function layout(title: string, body: string): string {
       margin-bottom: 8px;
     }
 
-    .season-list { list-style: none; }
-    .season-list li {
-      border-bottom: 1px solid var(--border);
+    /* ---- Grid & Results table (desktop) ---- */
+    .results-table-wrap { overflow-x: auto; }
+    .results-table-wrap table { min-width: 520px; }
+
+    /* ---- Grid & Results cards (mobile) ---- */
+    .results-cards { display: none; list-style: none; }
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+      margin-bottom: 8px;
     }
+    .result-card-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .result-card-pos {
+      font-size: 1.2rem;
+      font-weight: 700;
+      min-width: 28px;
+    }
+    .result-card-driver { font-weight: 600; flex: 1; }
+    .result-card-pts {
+      font-size: 0.85rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .result-card-pts strong { color: var(--text); }
+    .result-card-meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+    }
+    .result-card-meta span { white-space: nowrap; }
+
+    /* ---- Season list ---- */
+    .season-list { list-style: none; }
+    .season-list li { border-bottom: 1px solid var(--border); }
     .season-list li:last-child { border-bottom: none; }
     .season-list a {
       display: flex;
       align-items: baseline;
-      gap: 16px;
+      gap: 12px;
       padding: 10px 4px;
       color: var(--text);
     }
     .season-list a:hover { background: var(--surface); text-decoration: none; }
-    .season-list .round-num { color: var(--muted); font-size: 0.8rem; min-width: 28px; }
+    .season-list .round-num { color: var(--muted); font-size: 0.8rem; min-width: 24px; }
     .season-list .race-name { flex: 1; }
     .season-list .race-date { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
-    .season-list .winner { color: var(--muted); font-size: 0.8rem; min-width: 120px; text-align: right; }
+    .season-list .circuit { color: var(--muted); font-size: 0.8rem; min-width: 120px; text-align: right; }
     .season-list .upcoming { color: var(--accent); font-size: 0.75rem; font-weight: 600; }
 
+    /* ---- Home ---- */
     .home-seasons { list-style: none; }
     .home-seasons li { margin: 4px 0; }
     .home-seasons a { font-size: 1.1rem; color: var(--text); }
     .home-seasons a:hover { color: var(--accent); text-decoration: none; }
     .home-seasons .current { color: var(--accent); font-weight: 700; }
+
+    /* ---- Mobile ---- */
+    @media (max-width: 600px) {
+      body { padding: 16px 12px 48px; }
+      h1 { font-size: 1.2rem; }
+      h2 { margin: 24px 0 10px; }
+
+      .standings-grid { grid-template-columns: 1fr; }
+
+      /* swap table for cards in results */
+      .results-table-wrap { display: none; }
+      .results-cards { display: block; }
+
+      /* hide circuit on season list to save space */
+      .season-list .circuit { display: none; }
+      .season-list .race-date { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -186,7 +240,7 @@ export function renderSeasonList(season: number, races: Race[]): string {
           <span class="round-num">${race.round}</span>
           <span class="race-name">${race.name}</span>
           <span class="race-date">${dateStr}</span>
-          <span class="winner">${isUpcoming ? '<span class="upcoming">UPCOMING</span>' : race.circuit_name}</span>
+          <span class="circuit">${isUpcoming ? '<span class="upcoming">UPCOMING</span>' : race.circuit_name}</span>
         </a>
       </li>`;
     })
@@ -267,7 +321,10 @@ function renderGridResults(entries: RaceEntry[]): string {
     return (a.grid_position ?? 99) - (b.grid_position ?? 99);
   });
 
-  const rows = sorted.map((e) => {
+  const tableRows: string[] = [];
+  const cards: string[] = [];
+
+  sorted.forEach((e) => {
     const isDnf = e.finish_position === null;
     const isFl = e.fastest_lap === 1;
     const gridPos = e.grid_position ?? '—';
@@ -284,20 +341,36 @@ function renderGridResults(entries: RaceEntry[]): string {
     }
 
     const pts = e.points > 0 ? e.points : '—';
+    const driverDisplay = `${e.driver_code ? `<strong>${e.driver_code}</strong> ` : ''}${e.driver_name}`;
+    const flTag = isFl ? ' <span class="tag tag-fl">FL</span>' : '';
+    const statusDisplay = isDnf ? `<span class="tag tag-dnf">${escHtml(e.status)}</span>` : escHtml(e.status);
 
-    return `<tr>
+    tableRows.push(`<tr>
       <td>${finishPos}${posDelta}</td>
-      <td>${e.driver_code ? `<strong>${e.driver_code}</strong> ` : ''}${e.driver_name}${isFl ? ' <span class="tag tag-fl">FL</span>' : ''}</td>
+      <td>${driverDisplay}${flTag}</td>
       <td>${e.constructor}</td>
       <td>${gridPos}</td>
-      <td>${isDnf ? `<span class="tag tag-dnf">${escHtml(e.status)}</span>` : escHtml(e.status)}</td>
+      <td>${statusDisplay}</td>
       <td style="text-align:right">${pts}</td>
-    </tr>`;
-  }).join('\n');
+    </tr>`);
+
+    cards.push(`<li class="result-card">
+      <div class="result-card-top">
+        <span class="result-card-pos">${finishPos}${posDelta}</span>
+        <span class="result-card-driver">${driverDisplay}${flTag}</span>
+        <span class="result-card-pts"><strong>${pts}</strong> pts</span>
+      </div>
+      <div class="result-card-meta">
+        <span>${escHtml(e.constructor)}</span>
+        <span>Grid: ${gridPos}</span>
+        <span>${statusDisplay}</span>
+      </div>
+    </li>`);
+  });
 
   return `
     <h2>Grid &amp; Results</h2>
-    <div style="overflow-x:auto">
+    <div class="results-table-wrap">
       <table>
         <thead>
           <tr>
@@ -309,9 +382,10 @@ function renderGridResults(entries: RaceEntry[]): string {
             <th style="text-align:right">Pts</th>
           </tr>
         </thead>
-        <tbody>${rows}</tbody>
+        <tbody>${tableRows.join('\n')}</tbody>
       </table>
-    </div>`;
+    </div>
+    <ul class="results-cards">${cards.join('\n')}</ul>`;
 }
 
 function renderStandingsSection(
