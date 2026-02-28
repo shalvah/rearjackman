@@ -2,6 +2,11 @@ name = "rearjackman"
 main = "src/worker.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+routes = [
+  { pattern = "rearjackman.com", custom_domain = true }
+]
 
 [[d1_databases]]
 binding = "DB"
@@ -9,3 +14,4 @@ database_name = "rearjackman"
 database_id = "c90c6cfb-13b0-42fd-9a52-8210a211ad22"
 
 # Set the real secret with: wrangler secret put SYNC_SECRET
+
