@@ -8,9 +8,9 @@ import type {
 
 const JOLPICA_BASE = 'https://api.jolpi.ca/ergast/f1';
 
-// Delay between requests — Jolpica rate limit is ~4 req/s
-const DELAY_MS = 300;
-const MAX_RETRIES = 4;
+// Delay between requests — conservative to avoid rate limiting
+const DELAY_MS = 1000;
+const MAX_RETRIES = 5;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -36,7 +36,7 @@ async function jolpicaFetch<T>(path: string): Promise<JolpicaResponse<T>> {
 
     if (res.status === 429) {
       const retryAfter = res.headers.get('Retry-After');
-      const fallbackMs = 1000 * Math.pow(2, attempt); // 1s, 2s, 4s, 8s
+      const fallbackMs = 5000 * Math.pow(2, attempt); // 5s, 10s, 20s, 40s, 80s
       const waitMs = parseRetryAfterMs(retryAfter, fallbackMs);
       if (attempt < MAX_RETRIES) {
         console.warn(`[sync] 429 rate limited on ${path} — backing off ${waitMs}ms (attempt ${attempt + 1}/${MAX_RETRIES})${retryAfter ? ` [Retry-After: ${retryAfter}]` : ''}`);
