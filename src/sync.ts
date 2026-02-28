@@ -8,8 +8,9 @@ import type {
 
 const JOLPICA_BASE = 'https://api.jolpi.ca/ergast/f1';
 
-// Small delay between requests to be a good citizen to the API
-const DELAY_MS = 200;
+// Delay between requests — Jolpica rate limit is ~4 req/s
+const DELAY_MS = 300;
+const MAX_RETRIES = 4;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -17,11 +18,30 @@ function sleep(ms: number): Promise<void> {
 
 async function jolpicaFetch<T>(path: string): Promise<JolpicaResponse<T>> {
   const url = `${JOLPICA_BASE}${path}?limit=100`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Jolpica fetch failed: ${res.status} ${url}`);
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const res = await fetch(url);
+
+    if (res.status === 429) {
+      // Respect Retry-After header if present, otherwise exponential backoff
+      const retryAfter = res.headers.get('Retry-After');
+      const waitMs = retryAfter
+        ? parseInt(retryAfter) * 1000
+        : 1000 * Math.pow(2, attempt); // 1s, 2s, 4s, 8s
+      if (attempt < MAX_RETRIES) {
+        await sleep(waitMs);
+        continue;
+      }
+    }
+
+    if (!res.ok) {
+      throw new Error(`Jolpica fetch failed: ${res.status} ${url}`);
+    }
+
+    return res.json() as Promise<JolpicaResponse<T>>;
   }
-  return res.json() as Promise<JolpicaResponse<T>>;
+
+  throw new Error(`Jolpica fetch failed after ${MAX_RETRIES} retries: ${url}`);
 }
 
 // Fetch the schedule (all races) for a season
