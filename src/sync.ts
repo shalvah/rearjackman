@@ -9,7 +9,7 @@ import type {
 const JOLPICA_BASE = 'https://api.jolpi.ca/ergast/f1';
 
 // Delay between requests — conservative to avoid rate limiting
-const DELAY_MS = 1000;
+const DELAY_MS = 2000;
 const MAX_RETRIES = 5;
 
 function sleep(ms: number): Promise<void> {
@@ -236,6 +236,11 @@ export async function syncSeason(season: number, db: D1Database): Promise<SyncRe
 
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
+  // Cache the last round's "after" standings so we can use them as the next round's "before"
+  let cachedDriverStandings: JolpicaDriverStanding[] = [];
+  let cachedConstructorStandings: JolpicaConstructorStanding[] = [];
+  let cachedRound = 0;
+
   for (const race of races) {
     const round = parseInt(race.round);
     const raceDate = race.date;
@@ -265,21 +270,32 @@ export async function syncSeason(season: number, db: D1Database): Promise<SyncRe
     await upsertRaceEntries(db, raceId, results);
     log.push(`  Stored ${results.length} entries.`);
 
-    // "before" standings = standings after the previous round
+    // "before" standings: use cached "after" from previous round if available,
+    // otherwise fetch from API (covers the case where sync is resumed mid-season)
     const prevRound = round - 1;
-    await sleep(DELAY_MS);
-    const driverBefore = await fetchDriverStandings(season, prevRound);
-    await sleep(DELAY_MS);
-    const constructorBefore = await fetchConstructorStandings(season, prevRound);
+    let driverBefore: JolpicaDriverStanding[];
+    let constructorBefore: JolpicaConstructorStanding[];
+
+    if (cachedRound === prevRound) {
+      driverBefore = cachedDriverStandings;
+      constructorBefore = cachedConstructorStandings;
+      log.push(`  Before standings: using cached data from round ${prevRound}.`);
+    } else {
+      await sleep(DELAY_MS);
+      driverBefore = await fetchDriverStandings(season, prevRound);
+      await sleep(DELAY_MS);
+      constructorBefore = await fetchConstructorStandings(season, prevRound);
+      log.push(`  Before standings: fetched from API (round ${prevRound}).`);
+    }
 
     if (driverBefore.length > 0 || constructorBefore.length > 0) {
       await upsertStandingsSnapshots(db, raceId, 'before', driverBefore, constructorBefore);
-      log.push(`  Before standings stored (after round ${prevRound}: ${driverBefore.length} drivers, ${constructorBefore.length} constructors).`);
+      log.push(`  Before standings stored (${driverBefore.length} drivers, ${constructorBefore.length} constructors).`);
     } else {
       log.push(`  No before standings available (round ${prevRound} — likely start of season).`);
     }
 
-    // "after" standings = standings after this round
+    // "after" standings: always fetch from API
     await sleep(DELAY_MS);
     const driverAfter = await fetchDriverStandings(season, round);
     await sleep(DELAY_MS);
@@ -288,9 +304,14 @@ export async function syncSeason(season: number, db: D1Database): Promise<SyncRe
     if (driverAfter.length > 0 || constructorAfter.length > 0) {
       await upsertStandingsSnapshots(db, raceId, 'after', driverAfter, constructorAfter);
       log.push(`  After standings stored (round ${round}: ${driverAfter.length} drivers, ${constructorAfter.length} constructors).`);
+      // Cache for next round's "before"
+      cachedDriverStandings = driverAfter;
+      cachedConstructorStandings = constructorAfter;
+      cachedRound = round;
     } else {
       log.push(`  No after standings available for round ${round} — skipping.`);
     }
+
     racesProcessed++;
   }
 
