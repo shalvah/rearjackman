@@ -2,8 +2,9 @@ import type { Env, Race, RaceEntry, StandingsSnapshot } from './types';
 import { syncSeason } from './sync';
 import { renderHome, renderSeasonList, renderRaceDetail } from './render';
 
-// Seasons shown on the home page
-const KNOWN_SEASONS = [2025, 2024, 2023, 2022, 2021, 2020];
+// Seasons shown on the home page — dynamically starts from the current year
+const CURRENT_YEAR = new Date().getFullYear();
+const KNOWN_SEASONS = Array.from({ length: CURRENT_YEAR - 2023 }, (_, i) => CURRENT_YEAR - i);
 const LATEST_SEASON = KNOWN_SEASONS[0];
 
 export default {
