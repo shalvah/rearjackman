@@ -3,7 +3,7 @@ import { syncSeason } from './sync';
 import { renderHome, renderSeasonList, renderRaceDetail } from './render';
 
 // Seasons shown on the home page — dynamically starts from the current year
-const CURRENT_YEAR = new Date().getFullYear();
+const CURRENT_YEAR = 2026;
 const KNOWN_SEASONS = Array.from({ length: CURRENT_YEAR - 2023 }, (_, i) => CURRENT_YEAR - i);
 const LATEST_SEASON = KNOWN_SEASONS[0];
 
