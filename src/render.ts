@@ -179,6 +179,24 @@ function layout(title: string, body: string): string {
     .home-seasons a:hover { color: var(--accent); text-decoration: none; }
     .home-seasons .current { color: var(--accent); font-weight: 700; }
 
+    /* ---- Collapsible sections ---- */
+    .collapsed-row { display: none; }
+    .collapsed-card { display: none; }
+    .show-more-btn {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 5px 14px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--muted);
+      font-family: var(--font);
+      font-size: 0.8rem;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+    }
+    .show-more-btn:hover { border-color: var(--accent); color: var(--accent); }
+
     /* ---- Mobile ---- */
     @media (max-width: 600px) {
       body { padding: 16px 12px 48px; }
@@ -199,6 +217,20 @@ function layout(title: string, body: string): string {
 </head>
 <body>
 ${body}
+<script>
+  // Shared collapse toggle — used by all .show-more-btn buttons
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.show-more-btn');
+    if (!btn) return;
+    var section = btn.closest('.collapsible-section');
+    if (!section) return;
+    var expanded = section.dataset.expanded === 'true';
+    section.dataset.expanded = expanded ? 'false' : 'true';
+    var hidden = section.querySelectorAll('.collapsed-row, .collapsed-card');
+    hidden.forEach(function(el) { el.style.display = expanded ? '' : (el.classList.contains('result-card') ? 'block' : 'table-row'); });
+    btn.textContent = expanded ? btn.dataset.labelMore : btn.dataset.labelLess;
+  });
+</script>
 </body>
 </html>`;
 }
@@ -321,10 +353,12 @@ function renderGridResults(entries: RaceEntry[]): string {
     return (a.grid_position ?? 99) - (b.grid_position ?? 99);
   });
 
+  const PREVIEW = 5;
   const tableRows: string[] = [];
   const cards: string[] = [];
 
-  sorted.forEach((e) => {
+  sorted.forEach((e, i) => {
+    const isHidden = i >= PREVIEW;
     const isDnf = e.finish_position === null;
     const isFl = e.fastest_lap === 1;
     const gridPos = e.grid_position ?? '—';
@@ -345,7 +379,7 @@ function renderGridResults(entries: RaceEntry[]): string {
     const flTag = isFl ? ' <span class="tag tag-fl">FL</span>' : '';
     const statusDisplay = isDnf ? `<span class="tag tag-dnf">${escHtml(e.status)}</span>` : escHtml(e.status);
 
-    tableRows.push(`<tr>
+    tableRows.push(`<tr${isHidden ? ' class="collapsed-row"' : ''}>
       <td>${finishPos}${posDelta}</td>
       <td>${driverDisplay}${flTag}</td>
       <td>${e.constructor}</td>
@@ -354,7 +388,7 @@ function renderGridResults(entries: RaceEntry[]): string {
       <td style="text-align:right">${pts}</td>
     </tr>`);
 
-    cards.push(`<li class="result-card">
+    cards.push(`<li class="result-card${isHidden ? ' collapsed-card' : ''}">
       <div class="result-card-top">
         <span class="result-card-pos">${finishPos}${posDelta}</span>
         <span class="result-card-driver">${driverDisplay}${flTag}</span>
@@ -368,24 +402,32 @@ function renderGridResults(entries: RaceEntry[]): string {
     </li>`);
   });
 
+  const total = sorted.length;
+  const toggleBtn = total > PREVIEW
+    ? `<button class="show-more-btn" data-label-more="Show all ${total} &darr;" data-label-less="Show less &uarr;">Show all ${total} &darr;</button>`
+    : '';
+
   return `
     <h2>Grid &amp; Results</h2>
-    <div class="results-table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Finish</th>
-            <th>Driver</th>
-            <th>Constructor</th>
-            <th>Grid</th>
-            <th>Status</th>
-            <th style="text-align:right">Pts</th>
-          </tr>
-        </thead>
-        <tbody>${tableRows.join('\n')}</tbody>
-      </table>
-    </div>
-    <ul class="results-cards">${cards.join('\n')}</ul>`;
+    <div class="collapsible-section" data-expanded="false">
+      <div class="results-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Finish</th>
+              <th>Driver</th>
+              <th>Constructor</th>
+              <th>Grid</th>
+              <th>Status</th>
+              <th style="text-align:right">Pts</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows.join('\n')}</tbody>
+        </table>
+      </div>
+      <ul class="results-cards">${cards.join('\n')}</ul>
+      ${toggleBtn}
+    </div>`;
 }
 
 function renderStandingsSection(
@@ -399,16 +441,6 @@ function renderStandingsSection(
   const driversBeforeMap = new Map(driversBefore.map((s) => [s.entity_id, s]));
   const constructorsBeforeMap = new Map(constructorsBefore.map((s) => [s.entity_id, s]));
 
-  const driverRows = driversAfter.map((s) => {
-    const before = driversBeforeMap.get(s.entity_id);
-    return standingsRow(s, before);
-  }).join('\n');
-
-  const constructorRows = constructorsAfter.map((s) => {
-    const before = constructorsBeforeMap.get(s.entity_id);
-    return standingsRow(s, before);
-  }).join('\n');
-
   const prevRound = race.round - 1;
   const beforeLabel = prevRound === 0 ? 'Pre-season' : `After Round ${prevRound}`;
 
@@ -421,22 +453,42 @@ function renderStandingsSection(
     <div class="standings-grid">
       <div class="standings-box">
         <h3>Drivers</h3>
-        <table>
-          <thead><tr><th>Pos</th><th>Driver</th><th style="text-align:right">Pts</th><th style="text-align:right">Wins</th></tr></thead>
-          <tbody>${driverRows}</tbody>
-        </table>
+        ${renderStandingsTable(driversAfter, driversBeforeMap, 'Driver')}
       </div>
       <div class="standings-box">
         <h3>Constructors</h3>
-        <table>
-          <thead><tr><th>Pos</th><th>Constructor</th><th style="text-align:right">Pts</th><th style="text-align:right">Wins</th></tr></thead>
-          <tbody>${constructorRows}</tbody>
-        </table>
+        ${renderStandingsTable(constructorsAfter, constructorsBeforeMap, 'Constructor')}
       </div>
     </div>`;
 }
 
-function standingsRow(after: StandingsSnapshot, before?: StandingsSnapshot): string {
+const STANDINGS_PREVIEW = 5;
+
+function renderStandingsTable(
+  after: StandingsSnapshot[],
+  beforeMap: Map<string, StandingsSnapshot>,
+  entityLabel: string
+): string {
+  const rows = after.map((s, i) => {
+    const before = beforeMap.get(s.entity_id);
+    return standingsRow(s, before, i >= STANDINGS_PREVIEW);
+  }).join('\n');
+
+  const total = after.length;
+  const toggleBtn = total > STANDINGS_PREVIEW
+    ? `<button class="show-more-btn" data-label-more="Show all ${total} &darr;" data-label-less="Show less &uarr;">Show all ${total} &darr;</button>`
+    : '';
+
+  return `<div class="collapsible-section" data-expanded="false">
+    <table>
+      <thead><tr><th>Pos</th><th>${entityLabel}</th><th style="text-align:right">Pts</th><th style="text-align:right">Wins</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${toggleBtn}
+  </div>`;
+}
+
+function standingsRow(after: StandingsSnapshot, before: StandingsSnapshot | undefined, isHidden = false): string {
   let posDelta = '';
   if (before) {
     const diff = before.position - after.position; // positive = moved up
@@ -450,7 +502,7 @@ function standingsRow(after: StandingsSnapshot, before?: StandingsSnapshot): str
     ? `${after.points} <span style="color:var(--green);font-size:0.75rem">+${ptsDiff}</span>`
     : `${after.points}`;
 
-  return `<tr>
+  return `<tr${isHidden ? ' class="collapsed-row"' : ''}>
     <td>${after.position}${posDelta}</td>
     <td>${escHtml(after.entity_name)}</td>
     <td style="text-align:right">${ptsLabel}</td>
