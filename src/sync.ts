@@ -172,8 +172,10 @@ async function upsertStandingsSnapshots(
     .run();
 
   const stmts = [
-    ...driverStandings.map((s) =>
-      db
+    ...driverStandings.flatMap((s) => {
+      const position = parseInt(s.position ?? '');
+      if (isNaN(position)) return []; // skip unclassified entries (positionText: "-")
+      return [db
         .prepare(
           `INSERT INTO standings_snapshots
              (race_id, snapshot_type, entity_type, position, entity_id, entity_name, points, wins)
@@ -182,15 +184,17 @@ async function upsertStandingsSnapshots(
         .bind(
           raceId,
           snapshotType,
-          parseInt(s.position),
+          position,
           s.Driver.driverId,
           `${s.Driver.givenName} ${s.Driver.familyName}`,
           parseFloat(s.points),
           parseInt(s.wins)
-        )
-    ),
-    ...constructorStandings.map((s) =>
-      db
+        )];
+    }),
+    ...constructorStandings.flatMap((s) => {
+      const position = parseInt(s.position ?? '');
+      if (isNaN(position)) return []; // skip unclassified entries
+      return [db
         .prepare(
           `INSERT INTO standings_snapshots
              (race_id, snapshot_type, entity_type, position, entity_id, entity_name, points, wins)
@@ -199,13 +203,13 @@ async function upsertStandingsSnapshots(
         .bind(
           raceId,
           snapshotType,
-          parseInt(s.position),
+          position,
           s.Constructor.constructorId,
           s.Constructor.name,
           parseFloat(s.points),
           parseInt(s.wins)
-        )
-    ),
+        )];
+    }),
   ];
 
   if (stmts.length > 0) {
@@ -262,21 +266,31 @@ export async function syncSeason(season: number, db: D1Database): Promise<SyncRe
     log.push(`  Stored ${results.length} entries.`);
 
     // "before" standings = standings after the previous round
-    await sleep(DELAY_MS);
     const prevRound = round - 1;
+    await sleep(DELAY_MS);
     const driverBefore = await fetchDriverStandings(season, prevRound);
     await sleep(DELAY_MS);
     const constructorBefore = await fetchConstructorStandings(season, prevRound);
-    await upsertStandingsSnapshots(db, raceId, 'before', driverBefore, constructorBefore);
+
+    if (driverBefore.length > 0 || constructorBefore.length > 0) {
+      await upsertStandingsSnapshots(db, raceId, 'before', driverBefore, constructorBefore);
+      log.push(`  Before standings stored (after round ${prevRound}: ${driverBefore.length} drivers, ${constructorBefore.length} constructors).`);
+    } else {
+      log.push(`  No before standings available (round ${prevRound} — likely start of season).`);
+    }
 
     // "after" standings = standings after this round
     await sleep(DELAY_MS);
     const driverAfter = await fetchDriverStandings(season, round);
     await sleep(DELAY_MS);
     const constructorAfter = await fetchConstructorStandings(season, round);
-    await upsertStandingsSnapshots(db, raceId, 'after', driverAfter, constructorAfter);
 
-    log.push(`  Standings stored (before round ${prevRound}, after round ${round}).`);
+    if (driverAfter.length > 0 || constructorAfter.length > 0) {
+      await upsertStandingsSnapshots(db, raceId, 'after', driverAfter, constructorAfter);
+      log.push(`  After standings stored (round ${round}: ${driverAfter.length} drivers, ${constructorAfter.length} constructors).`);
+    } else {
+      log.push(`  No after standings available for round ${round} — skipping.`);
+    }
     racesProcessed++;
   }
 

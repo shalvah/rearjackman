@@ -108,7 +108,8 @@ export interface JolpicaStandingsList {
 }
 
 export interface JolpicaDriverStanding {
-  position: string;
+  position?: string;      // absent when positionText is "-" (e.g. DNF, no points)
+  positionText: string;
   points: string;
   wins: string;
   Driver: {
@@ -119,7 +120,8 @@ export interface JolpicaDriverStanding {
 }
 
 export interface JolpicaConstructorStanding {
-  position: string;
+  position?: string;      // absent when positionText is "-"
+  positionText: string;
   points: string;
   wins: string;
   Constructor: {
