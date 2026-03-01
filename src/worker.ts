@@ -99,7 +99,7 @@ async function handleRaceDetail(env: Env, season: number, round: number): Promis
     return notFound(`Race not found: ${season} round ${round}.`);
   }
 
-  const [entries, snapshotsBefore, snapshotsAfter] = await Promise.all([
+  const [entries, snapshotsBefore, snapshotsAfter, previousRaces] = await Promise.all([
     env.DB.prepare('SELECT * FROM race_entries WHERE race_id = ? ORDER BY COALESCE(finish_position, 99), grid_position')
       .bind(race.id)
       .all<RaceEntry>(),
@@ -113,6 +113,11 @@ async function handleRaceDetail(env: Env, season: number, round: number): Promis
     )
       .bind(race.id)
       .all<StandingsSnapshot>(),
+    env.DB.prepare(
+      'SELECT * FROM races WHERE circuit_id = ? AND season < ? ORDER BY season DESC'
+    )
+      .bind(race.circuit_id, race.season)
+      .all<Race>(),
   ]);
 
   const driversBefore = snapshotsBefore.results.filter((s) => s.entity_type === 'driver');
@@ -121,7 +126,15 @@ async function handleRaceDetail(env: Env, season: number, round: number): Promis
   const constructorsAfter = snapshotsAfter.results.filter((s) => s.entity_type === 'constructor');
 
   return htmlResponse(
-    renderRaceDetail(race, entries.results, driversBefore, constructorsBefore, driversAfter, constructorsAfter)
+    renderRaceDetail(
+      race,
+      entries.results,
+      driversBefore,
+      constructorsBefore,
+      driversAfter,
+      constructorsAfter,
+      previousRaces.results
+    )
   );
 }
 
