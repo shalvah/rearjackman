@@ -75,6 +75,21 @@ export default {
         .catch((err) => console.error(`[cron] Sync failed:`, err))
     );
   },
+
+  async queue(batch: MessageBatch<{ season: number }>, env: Env): Promise<void> {
+    for (const message of batch.messages) {
+      const { season } = message.body;
+      console.log(`[queue] Starting sync for ${season}`);
+      try {
+        const result = await syncSeason(season, env.DB);
+        console.log(`[queue] Sync complete for ${season}:`, JSON.stringify(result));
+        message.ack();
+      } catch (err) {
+        console.error(`[queue] Sync failed for ${season}:`, err);
+        message.retry();
+      }
+    }
+  },
 };
 
 // ---- Route handlers ----
@@ -90,13 +105,10 @@ async function handleSync(request: Request, env: Env, ctx: ExecutionContext, sea
     return new Response('Invalid season', { status: 400 });
   }
 
-  ctx.waitUntil(
-    syncSeason(season, env.DB)
-      .then((result) => console.log(`[manual-sync] Sync complete for ${season}:`, JSON.stringify(result)))
-      .catch((err) => console.error(`[manual-sync] Sync failed for ${season}:`, err))
-  );
+  await env.SYNC_QUEUE.send({ season });
+  console.log(`[manual-sync] Queued sync for ${season}`);
 
-  return new Response(JSON.stringify({ message: `Sync started for season ${season}` }, null, 2), {
+  return new Response(JSON.stringify({ message: `Sync queued for season ${season}` }, null, 2), {
     headers: { 'Content-Type': 'application/json' },
   });
 }

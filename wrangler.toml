@@ -22,5 +22,13 @@ migrations_dir = "migrations"
 enabled = true
 invocation_logs = true
 
-# Set the real secret with: wrangler secret put SYNC_SECRET
+
+[[queues.producers]]
+queue = "rearjackman-sync"
+binding = "SYNC_QUEUE"
+
+[[queues.consumers]]
+queue = "rearjackman-sync"
+max_batch_size = 1
+max_batch_timeout = 5
 
