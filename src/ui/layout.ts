@@ -9,6 +9,7 @@ export function layout(title: string, body: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <title>${title} — Rear JackMan</title>
   <style>${css}</style>
 </head>

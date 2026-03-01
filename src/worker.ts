@@ -1,3 +1,4 @@
+import { FAVICON_SVG } from './assets';
 import type { Env, Race, RaceEntry, StandingsSnapshot } from './types';
 import { syncSeason } from './sync';
 import { renderHome, renderSeasonList, renderRaceDetail } from './ui/render';
@@ -9,6 +10,12 @@ const LATEST_SEASON = KNOWN_SEASONS[0];
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === '/favicon.svg' || url.pathname === '/favicon.ico') {
+      return new Response(FAVICON_SVG, {
+        headers: { 'Content-Type': 'image/svg+xml' },
+      });
+    }
+
     const segments = url.pathname.replace(/^\/|\/$/g, '').split('/').filter(Boolean);
 
     try {
