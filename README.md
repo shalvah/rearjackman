@@ -23,4 +23,3 @@ The app is primarily text-based. The core of this app is data fetching and rende
 - Sync: Make sync resumable
 - RSS news feeds, piped through a tiny LLM to determine what's actually newsworthy or not
 - "Interesting Facts": probably manually curated + LLM-written
-- [NEW] Driver page: Clicking on a driver from the race page takes you to their page, showing all results this season and previous seasons

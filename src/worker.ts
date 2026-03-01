@@ -1,7 +1,7 @@
 import { FAVICON_SVG } from './assets';
 import type { Env, Race, RaceEntry, StandingsSnapshot } from './types';
 import { syncSeason } from './sync';
-import { renderHome, renderSeasonList, renderRaceDetail, renderDriverPage } from './ui/render';
+import { renderHome, renderSeasonList, renderRaceDetail, renderDriverPage, renderConstructorPage } from './ui/render';
 
 const CURRENT_YEAR = 2026; // Hardcoded because `new Date()` returns 1970 in Cloudflare Workers' global scope.
 const KNOWN_SEASONS = Array.from({ length: CURRENT_YEAR - 2023 }, (_, i) => CURRENT_YEAR - i);
@@ -35,6 +35,14 @@ export default {
         const seasonParam = url.searchParams.get('season');
         const season = seasonParam ? parseInt(seasonParam) : LATEST_SEASON;
         return handleDriverPage(env, driverId, season);
+      }
+
+      // GET /constructor/:constructorId — constructor profile
+      if (segments[0] === 'constructor' && segments[1]) {
+        const constructorId = segments[1];
+        const seasonParam = url.searchParams.get('season');
+        const season = seasonParam ? parseInt(seasonParam) : LATEST_SEASON;
+        return handleConstructorPage(env, constructorId, season);
       }
 
       // GET /:season — season list
@@ -217,6 +225,77 @@ async function handleDriverPage(env: Env, driverId: string, season: number): Pro
     renderDriverPage(
       driverId,
       driverName,
+      season,
+      currentMapped as any,
+      previousMapped as any
+    )
+  );
+}
+
+async function handleConstructorPage(env: Env, constructorId: string, season: number): Promise<Response> {
+  // First, find the constructor name using the standings_snapshots table (most reliable source for ID->Name mapping)
+  const snapshot = await env.DB.prepare(
+    "SELECT entity_name FROM standings_snapshots WHERE entity_id = ? AND entity_type = 'constructor' LIMIT 1"
+  )
+    .bind(constructorId)
+    .first<{ entity_name: string }>();
+
+  let constructorName = snapshot?.entity_name;
+
+  // If not found in snapshots (e.g. no points yet), try to guess from ID (fallback) or return 404
+  if (!constructorName) {
+      // Fallback: This might fail if the constructor has no points ever.
+      // But usually active constructors have some entry in standings even with 0 points if the sync is correct.
+      // If not, we can't reliably filter race_entries because race_entries only has the name.
+      // Let's try to query race_entries with a LIKE? No, that's risky.
+      // If we can't find the name, we probably can't find entries.
+      return notFound(`Constructor not found: ${constructorId}`);
+  }
+
+  // Fetch results for the requested season
+  const currentResults = await env.DB.prepare(`
+    SELECT re.*, r.season, r.round, r.name as race_name, r.date, r.circuit_name 
+    FROM race_entries re
+    JOIN races r ON re.race_id = r.id
+    WHERE re.constructor = ? AND r.season = ?
+    ORDER BY r.round ASC, re.finish_position ASC
+  `)
+  .bind(constructorName, season)
+  .all<any>();
+
+  // Fetch results for the previous season
+  const previousResults = await env.DB.prepare(`
+    SELECT re.*, r.season, r.round, r.name as race_name, r.date, r.circuit_name 
+    FROM race_entries re
+    JOIN races r ON re.race_id = r.id
+    WHERE re.constructor = ? AND r.season = ?
+    ORDER BY r.round ASC, re.finish_position ASC
+  `)
+  .bind(constructorName, season - 1)
+  .all<any>();
+
+  // Transform flat results into nested structure
+  const mapResults = (rows: any[]) => {
+    return rows.map(row => ({
+      ...row,
+      race: {
+        id: row.race_id,
+        season: row.season,
+        round: row.round,
+        name: row.race_name,
+        circuit_name: row.circuit_name,
+        date: row.date,
+      }
+    }));
+  };
+
+  const currentMapped = mapResults(currentResults.results);
+  const previousMapped = mapResults(previousResults.results);
+
+  return htmlResponse(
+    renderConstructorPage(
+      constructorId,
+      constructorName,
       season,
       currentMapped as any,
       previousMapped as any

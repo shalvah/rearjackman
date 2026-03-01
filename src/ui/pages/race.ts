@@ -37,7 +37,7 @@ export function renderRaceDetail(
       </div>
     </div>
 
-    ${hasResults ? renderGridResults(entries, race.season) : '<p style="color:var(--muted)">Results not yet available.</p>'}
+    ${hasResults ? renderGridResults(entries, race.season, constructorsAfter) : '<p style="color:var(--muted)">Results not yet available.</p>'}
 
     ${hasStandings ? renderStandingsSection(race, driversBefore, constructorsBefore, driversAfter, constructorsAfter) : ''}
 
@@ -63,7 +63,11 @@ export function renderRaceDetail(
 
 // ---- Grid & Results section ----
 
-function renderGridResults(entries: RaceEntry[], season: number): string {
+function renderGridResults(entries: RaceEntry[], season: number, constructorStandings: StandingsSnapshot[]): string {
+  // Create a map of constructor name -> constructor ID from standings
+  // This is a best-effort mapping since we only have constructor name in entries
+  const constructorIdMap = new Map(constructorStandings.map(c => [c.entity_name, c.entity_id]));
+
   // Sort: finishers by finish_position, then DNFs by grid_position
   const sorted = [...entries].sort((a, b) => {
     if (a.finish_position !== null && b.finish_position !== null) {
@@ -93,6 +97,13 @@ function renderGridResults(entries: RaceEntry[], season: number): string {
     const pts = e.points > 0 ? e.points : '—';
     const driverLink = `<a href="/driver/${e.jolpica_driver_id}?season=${season}">${e.driver_name}</a>`;
     const driverDisplay = `${e.driver_code ? `<strong>${e.driver_code}</strong> ` : ''}${driverLink}`;
+    
+    // Attempt to link constructor
+    const constructorId = constructorIdMap.get(e.constructor);
+    const constructorDisplay = constructorId 
+      ? `<a href="/constructor/${constructorId}?season=${season}">${escHtml(e.constructor)}</a>`
+      : escHtml(e.constructor);
+
     const flTag = isFl ? ' <span class="tag tag-fl">FL</span>' : '';
     const statusDisplay = isDnf
       ? `<span class="tag tag-dnf">${escHtml(e.status)}</span>`
@@ -101,7 +112,7 @@ function renderGridResults(entries: RaceEntry[], season: number): string {
     tableRows.push(`<tr${isHidden ? ' class="collapsed-row"' : ''}>
       <td>${finishPos}${posDelta}</td>
       <td>${driverDisplay}${flTag}</td>
-      <td>${e.constructor}</td>
+      <td>${constructorDisplay}</td>
       <td>${gridPos}</td>
       <td>${statusDisplay}</td>
       <td style="text-align:right">${pts}</td>
@@ -185,7 +196,7 @@ function renderStandingsTable(
 ): string {
   const rows = after.map((s, i) => {
     const before = beforeMap.get(s.entity_id);
-    return standingsRow(s, before, i >= PREVIEW, entityLabel === 'Driver' ? season : undefined);
+    return standingsRow(s, before, i >= PREVIEW, entityLabel, season);
   }).join('\n');
 
   return `<div class="collapsible-section" data-expanded="false">
@@ -197,7 +208,7 @@ function renderStandingsTable(
   </div>`;
 }
 
-function standingsRow(after: StandingsSnapshot, before: StandingsSnapshot | undefined, isHidden = false, season?: number): string {
+function standingsRow(after: StandingsSnapshot, before: StandingsSnapshot | undefined, isHidden = false, entityLabel: string, season: number): string {
   const posDelta = before ? posDeltaHtml(before.position - after.position) : '';
 
   const ptsDiff = before ? after.points - before.points : null;
@@ -205,9 +216,12 @@ function standingsRow(after: StandingsSnapshot, before: StandingsSnapshot | unde
     ? `${after.points} <span style="color:var(--green);font-size:0.75rem">+${ptsDiff}</span>`
     : `${after.points}`;
 
-  const nameDisplay = season && after.entity_type === 'driver'
-    ? `<a href="/driver/${after.entity_id}?season=${season}">${escHtml(after.entity_name)}</a>`
-    : escHtml(after.entity_name);
+  let nameDisplay = escHtml(after.entity_name);
+  if (entityLabel === 'Driver') {
+    nameDisplay = `<a href="/driver/${after.entity_id}?season=${season}">${escHtml(after.entity_name)}</a>`;
+  } else if (entityLabel === 'Constructor') {
+    nameDisplay = `<a href="/constructor/${after.entity_id}?season=${season}">${escHtml(after.entity_name)}</a>`;
+  }
 
   return `<tr${isHidden ? ' class="collapsed-row"' : ''}>
     <td>${after.position}${posDelta}</td>
