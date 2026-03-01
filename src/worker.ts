@@ -1,7 +1,7 @@
 import { FAVICON_SVG } from './assets';
 import type { Env, Race, RaceEntry, StandingsSnapshot } from './types';
 import { syncSeason } from './sync';
-import { renderHome, renderSeasonList, renderRaceDetail } from './ui/render';
+import { renderHome, renderSeasonList, renderRaceDetail, renderDriverPage } from './ui/render';
 
 const CURRENT_YEAR = 2026; // Hardcoded because `new Date()` returns 1970 in Cloudflare Workers' global scope.
 const KNOWN_SEASONS = Array.from({ length: CURRENT_YEAR - 2023 }, (_, i) => CURRENT_YEAR - i);
@@ -27,6 +27,14 @@ export default {
       // GET /api/sync/:season — trigger sync
       if (segments[0] === 'api' && segments[1] === 'sync' && segments[2]) {
         return handleSync(request, env, segments[2]);
+      }
+
+      // GET /driver/:driverId — driver profile
+      if (segments[0] === 'driver' && segments[1]) {
+        const driverId = segments[1];
+        const seasonParam = url.searchParams.get('season');
+        const season = seasonParam ? parseInt(seasonParam) : LATEST_SEASON;
+        return handleDriverPage(env, driverId, season);
       }
 
       // GET /:season — season list
@@ -140,6 +148,78 @@ async function handleRaceDetail(env: Env, season: number, round: number): Promis
       driversAfter,
       constructorsAfter,
       previousRaces.results
+    )
+  );
+}
+
+async function handleDriverPage(env: Env, driverId: string, season: number): Promise<Response> {
+  // Fetch results for the requested season
+  const currentResults = await env.DB.prepare(`
+    SELECT re.*, r.season, r.round, r.name as race_name, r.date, r.circuit_name 
+    FROM race_entries re
+    JOIN races r ON re.race_id = r.id
+    WHERE re.jolpica_driver_id = ? AND r.season = ?
+    ORDER BY r.round ASC
+  `)
+  .bind(driverId, season)
+  .all<any>();
+
+  // Fetch results for the previous season
+  const previousResults = await env.DB.prepare(`
+    SELECT re.*, r.season, r.round, r.name as race_name, r.date, r.circuit_name 
+    FROM race_entries re
+    JOIN races r ON re.race_id = r.id
+    WHERE re.jolpica_driver_id = ? AND r.season = ?
+    ORDER BY r.round ASC
+  `)
+  .bind(driverId, season - 1)
+  .all<any>();
+
+  // Determine driver name from results or fallback
+  let driverName = driverId;
+  if (currentResults.results.length > 0) {
+    driverName = currentResults.results[0].driver_name;
+  } else if (previousResults.results.length > 0) {
+    driverName = previousResults.results[0].driver_name;
+  } else {
+    // If no results found in either season, try to find the driver name from *any* race entry
+    const anyEntry = await env.DB.prepare('SELECT driver_name FROM race_entries WHERE jolpica_driver_id = ? LIMIT 1')
+      .bind(driverId)
+      .first<{ driver_name: string }>();
+    
+    if (anyEntry) {
+      driverName = anyEntry.driver_name;
+    } else {
+        return notFound(`Driver not found: ${driverId}`);
+    }
+  }
+
+  // Transform flat results into nested structure required by renderDriverPage
+  const mapResults = (rows: any[]) => {
+    return rows.map(row => ({
+      ...row,
+      race: {
+        id: row.race_id,
+        season: row.season,
+        round: row.round,
+        name: row.race_name,
+        circuit_name: row.circuit_name,
+        date: row.date,
+        // ... other race fields if needed
+      }
+    }));
+  };
+
+  const currentMapped = mapResults(currentResults.results);
+  const previousMapped = mapResults(previousResults.results);
+
+  return htmlResponse(
+    renderDriverPage(
+      driverId,
+      driverName,
+      season,
+      currentMapped as any,
+      previousMapped as any
     )
   );
 }

@@ -37,7 +37,7 @@ export function renderRaceDetail(
       </div>
     </div>
 
-    ${hasResults ? renderGridResults(entries) : '<p style="color:var(--muted)">Results not yet available.</p>'}
+    ${hasResults ? renderGridResults(entries, race.season) : '<p style="color:var(--muted)">Results not yet available.</p>'}
 
     ${hasStandings ? renderStandingsSection(race, driversBefore, constructorsBefore, driversAfter, constructorsAfter) : ''}
 
@@ -63,7 +63,7 @@ export function renderRaceDetail(
 
 // ---- Grid & Results section ----
 
-function renderGridResults(entries: RaceEntry[]): string {
+function renderGridResults(entries: RaceEntry[], season: number): string {
   // Sort: finishers by finish_position, then DNFs by grid_position
   const sorted = [...entries].sort((a, b) => {
     if (a.finish_position !== null && b.finish_position !== null) {
@@ -91,7 +91,8 @@ function renderGridResults(entries: RaceEntry[]): string {
       : '';
 
     const pts = e.points > 0 ? e.points : '—';
-    const driverDisplay = `${e.driver_code ? `<strong>${e.driver_code}</strong> ` : ''}${e.driver_name}`;
+    const driverLink = `<a href="/driver/${e.jolpica_driver_id}?season=${season}">${e.driver_name}</a>`;
+    const driverDisplay = `${e.driver_code ? `<strong>${e.driver_code}</strong> ` : ''}${driverLink}`;
     const flTag = isFl ? ' <span class="tag tag-fl">FL</span>' : '';
     const statusDisplay = isDnf
       ? `<span class="tag tag-dnf">${escHtml(e.status)}</span>`
@@ -167,11 +168,11 @@ function renderStandingsSection(
     <div class="standings-grid">
       <div class="standings-box">
         <h3>Drivers</h3>
-        ${renderStandingsTable(driversAfter, driversBeforeMap, 'Driver')}
+        ${renderStandingsTable(driversAfter, driversBeforeMap, 'Driver', race.season)}
       </div>
       <div class="standings-box">
         <h3>Constructors</h3>
-        ${renderStandingsTable(constructorsAfter, constructorsBeforeMap, 'Constructor')}
+        ${renderStandingsTable(constructorsAfter, constructorsBeforeMap, 'Constructor', race.season)}
       </div>
     </div>`;
 }
@@ -179,11 +180,12 @@ function renderStandingsSection(
 function renderStandingsTable(
   after: StandingsSnapshot[],
   beforeMap: Map<string, StandingsSnapshot>,
-  entityLabel: string
+  entityLabel: string,
+  season: number
 ): string {
   const rows = after.map((s, i) => {
     const before = beforeMap.get(s.entity_id);
-    return standingsRow(s, before, i >= PREVIEW);
+    return standingsRow(s, before, i >= PREVIEW, entityLabel === 'Driver' ? season : undefined);
   }).join('\n');
 
   return `<div class="collapsible-section" data-expanded="false">
@@ -195,7 +197,7 @@ function renderStandingsTable(
   </div>`;
 }
 
-function standingsRow(after: StandingsSnapshot, before: StandingsSnapshot | undefined, isHidden = false): string {
+function standingsRow(after: StandingsSnapshot, before: StandingsSnapshot | undefined, isHidden = false, season?: number): string {
   const posDelta = before ? posDeltaHtml(before.position - after.position) : '';
 
   const ptsDiff = before ? after.points - before.points : null;
@@ -203,9 +205,13 @@ function standingsRow(after: StandingsSnapshot, before: StandingsSnapshot | unde
     ? `${after.points} <span style="color:var(--green);font-size:0.75rem">+${ptsDiff}</span>`
     : `${after.points}`;
 
+  const nameDisplay = season && after.entity_type === 'driver'
+    ? `<a href="/driver/${after.entity_id}?season=${season}">${escHtml(after.entity_name)}</a>`
+    : escHtml(after.entity_name);
+
   return `<tr${isHidden ? ' class="collapsed-row"' : ''}>
     <td>${after.position}${posDelta}</td>
-    <td>${escHtml(after.entity_name)}</td>
+    <td>${nameDisplay}</td>
     <td style="text-align:right">${ptsLabel}</td>
     <td style="text-align:right">${after.wins}</td>
   </tr>`;
@@ -218,4 +224,3 @@ function renderPreviousRaces(races: Race[]): string {
 
   return rows.join('\n');
 }
-
