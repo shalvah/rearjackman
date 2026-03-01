@@ -32,14 +32,14 @@ export function renderRaceDetail(
         ${race.circuit_name}${race.locality ? ` &middot; ${race.locality}, ${race.country}` : ''}
         &middot; <span id="race-date-local">${race.date}${race.time ? ' ' + race.time : ''}</span>
         ${race.wikipedia_url ? `&middot; <a href="${race.wikipedia_url}" target="_blank" rel="noopener">Wikipedia</a>` : ''}
+
+    ${hasPreviousRaces ? ` &middot; Previous seasons: ` + renderPreviousRaces(previousRaces) : ''}
       </div>
     </div>
 
     ${hasResults ? renderGridResults(entries) : '<p style="color:var(--muted)">Results not yet available.</p>'}
 
     ${hasStandings ? renderStandingsSection(race, driversBefore, constructorsBefore, driversAfter, constructorsAfter) : ''}
-
-    ${hasPreviousRaces ? renderPreviousRaces(previousRaces) : ''}
 
     <script>
       // Convert race date/time to local timezone
@@ -213,24 +213,9 @@ function standingsRow(after: StandingsSnapshot, before: StandingsSnapshot | unde
 
 function renderPreviousRaces(races: Race[]): string {
   const rows = races.map((race, i) => {
-    const isHidden = i >= PREVIEW;
-    const dateStr = formatDate(race.date);
-    return `<li${isHidden ? ' class="collapsed-row"' : ''}>
-      <a href="/${race.season}/${race.round}" style="display:flex;gap:12px;padding:8px 4px;border-bottom:1px solid var(--border);color:var(--text);align-items:baseline;">
-        <span style="color:var(--muted);font-weight:700;min-width:40px">${race.season}</span>
-        <span style="flex:1">${race.name}</span>
-        <span style="color:var(--muted);font-size:0.8rem">${dateStr}</span>
-      </a>
-    </li>`;
+    return `<a href="/${race.season}/${race.round}">${race.season}</a> &middot; `;
   });
 
-  return `
-    <h2>Previous Seasons at this Circuit</h2>
-    <div class="collapsible-section" data-expanded="false">
-      <ul style="list-style:none;">
-        ${rows.join('\n')}
-      </ul>
-      ${showMoreBtn(races.length, PREVIEW)}
-    </div>`;
+  return rows.join('\n');
 }
 
