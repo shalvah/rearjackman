@@ -17,5 +17,10 @@ database_name = "rearjackman"
 database_id = "c90c6cfb-13b0-42fd-9a52-8210a211ad22"
 migrations_dir = "migrations"
 
+[observability]
+[observability.logs]
+enabled = false
+invocation_logs = true
+
 # Set the real secret with: wrangler secret put SYNC_SECRET
 
