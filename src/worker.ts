@@ -8,7 +8,7 @@ const KNOWN_SEASONS = Array.from({ length: CURRENT_YEAR - 2023 }, (_, i) => CURR
 const LATEST_SEASON = KNOWN_SEASONS[0];
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === '/favicon.svg' || url.pathname === '/favicon.ico') {
       return new Response(FAVICON_SVG, {
@@ -26,7 +26,7 @@ export default {
 
       // GET /api/sync/:season — trigger sync
       if (segments[0] === 'api' && segments[1] === 'sync' && segments[2]) {
-        return handleSync(request, env, segments[2]);
+        return handleSync(request, env, ctx, segments[2]);
       }
 
       // GET /driver/:driverId — driver profile
@@ -79,7 +79,7 @@ export default {
 
 // ---- Route handlers ----
 
-async function handleSync(request: Request, env: Env, seasonStr: string): Promise<Response> {
+async function handleSync(request: Request, env: Env, ctx: ExecutionContext, seasonStr: string): Promise<Response> {
   const secret = request.headers.get('X-Sync-Secret');
   if (!secret || secret !== env.SYNC_SECRET) {
     return new Response('Unauthorized', { status: 401 });
@@ -90,8 +90,13 @@ async function handleSync(request: Request, env: Env, seasonStr: string): Promis
     return new Response('Invalid season', { status: 400 });
   }
 
-  const result = await syncSeason(season, env.DB);
-  return new Response(JSON.stringify(result, null, 2), {
+  ctx.waitUntil(
+    syncSeason(season, env.DB)
+      .then((result) => console.log(`[manual-sync] Sync complete for ${season}:`, JSON.stringify(result)))
+      .catch((err) => console.error(`[manual-sync] Sync failed for ${season}:`, err))
+  );
+
+  return new Response(JSON.stringify({ message: `Sync started for season ${season}` }, null, 2), {
     headers: { 'Content-Type': 'application/json' },
   });
 }

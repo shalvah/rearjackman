@@ -8,10 +8,10 @@ import type {
 
 const JOLPICA_BASE = 'https://api.jolpi.ca/ergast/f1';
 
-// Delay between requests — conservative to avoid rate limiting
 const DELAY_MS = 2000;
 const MAX_RETRIES = 5;
 
+// TODO replace with node:timers/promises. See https://developers.cloudflare.com/workers/runtime-apis/nodejs/timers/
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
