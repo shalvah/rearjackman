@@ -76,12 +76,12 @@ export default {
     );
   },
 
-  async queue(batch: MessageBatch<{ season: number }>, env: Env): Promise<void> {
+  async queue(batch: MessageBatch<{ season: number; fromRound?: number }>, env: Env): Promise<void> {
     for (const message of batch.messages) {
-      const { season } = message.body;
-      console.log(`[queue] Starting sync for ${season}`);
+      const { season, fromRound } = message.body;
+      console.log(`[queue] Starting sync for ${season} (from round ${fromRound ?? 1})`);
       try {
-        const result = await syncSeason(season, env.DB);
+        const result = await syncSeason(season, env.DB, fromRound ?? 1);
         console.log(`[queue] Sync complete for ${season}:`, JSON.stringify(result));
         message.ack();
       } catch (err) {
@@ -105,10 +105,13 @@ async function handleSync(request: Request, env: Env, ctx: ExecutionContext, sea
     return new Response('Invalid season', { status: 400 });
   }
 
-  await env.SYNC_QUEUE.send({ season });
-  console.log(`[manual-sync] Queued sync for ${season}`);
+  const url = new URL(request.url);
+  const fromRound = parseInt(url.searchParams.get('from') || '1');
 
-  return new Response(JSON.stringify({ message: `Sync queued for season ${season}` }, null, 2), {
+  await env.SYNC_QUEUE.send({ season, fromRound });
+  console.log(`[manual-sync] Queued sync for ${season} (from round ${fromRound})`);
+
+  return new Response(JSON.stringify({ message: `Sync queued for season ${season} starting from round ${fromRound}` }, null, 2), {
     headers: { 'Content-Type': 'application/json' },
   });
 }
