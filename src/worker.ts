@@ -76,12 +76,12 @@ export default {
     );
   },
 
-  async queue(batch: MessageBatch<{ season: number; fromRound?: number }>, env: Env): Promise<void> {
+  async queue(batch: MessageBatch<{ season: number; fromRound?: number; toRound?: number }>, env: Env): Promise<void> {
     for (const message of batch.messages) {
-      const { season, fromRound } = message.body;
-      console.log(`[queue] Starting sync for ${season} (from round ${fromRound ?? 1})`);
+      const { season, fromRound, toRound } = message.body;
+      console.log(`[queue] Starting sync for ${season} (from round ${fromRound ?? 1}, to round ${toRound ?? 'end'})`);
       try {
-        const result = await syncSeason(season, env.DB, fromRound ?? 1);
+        const result = await syncSeason(season, env.DB, fromRound ?? 1, toRound);
         console.log(`[queue] Sync complete for ${season}:`, JSON.stringify(result));
         message.ack();
       } catch (err) {
@@ -106,12 +106,21 @@ async function handleSync(request: Request, env: Env, ctx: ExecutionContext, sea
   }
 
   const url = new URL(request.url);
-  const fromRound = parseInt(url.searchParams.get('from') || '1');
+  const fromParam = url.searchParams.get('from');
+  const fromRound = fromParam ? parseInt(fromParam) : 1;
+  const toParam = url.searchParams.get('to');
+  const toRound = toParam ? parseInt(toParam) : undefined;
 
-  await env.SYNC_QUEUE.send({ season, fromRound });
-  console.log(`[manual-sync] Queued sync for ${season} (from round ${fromRound})`);
+  if (isNaN(fromRound) || (toRound !== undefined && isNaN(toRound))) {
+    return new Response('Invalid from/to round', { status: 400 });
+  }
 
-  return new Response(JSON.stringify({ message: `Sync queued for season ${season} starting from round ${fromRound}` }, null, 2), {
+  await env.SYNC_QUEUE.send({ season, fromRound, toRound });
+  console.log(`[manual-sync] Queued sync for ${season} (from round ${fromRound}, to round ${toRound ?? 'end'})`);
+
+  const message = `Sync queued for season ${season} starting from round ${fromRound}${toRound ? ` up to round ${toRound}` : ''}`;
+
+  return new Response(JSON.stringify({ message }, null, 2), {
     headers: { 'Content-Type': 'application/json' },
   });
 }

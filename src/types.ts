@@ -3,7 +3,7 @@
 export interface Env {
   DB: D1Database;
   SYNC_SECRET: string;
-  SYNC_QUEUE: Queue<{ season: number; fromRound?: number }>;
+  SYNC_QUEUE: Queue<{ season: number; fromRound?: number; toRound?: number }>;
 }
 
 // ---- Database row types ----

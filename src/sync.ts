@@ -225,7 +225,7 @@ export interface SyncResult {
 }
 
 // Main sync function: fetches all data for a season and writes to D1
-export async function syncSeason(season: number, db: D1Database, fromRound = 1): Promise<SyncResult> {
+export async function syncSeason(season: number, db: D1Database, fromRound = 1, toRound?: number): Promise<SyncResult> {
   const log: string[] = [];
   let racesProcessed = 0;
   let racesSkipped = 0;
@@ -245,6 +245,10 @@ export async function syncSeason(season: number, db: D1Database, fromRound = 1):
     const round = parseInt(race.round);
     
     if (round < fromRound) {
+      continue;
+    }
+
+    if (toRound !== undefined && round > toRound) {
       continue;
     }
 
