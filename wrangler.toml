@@ -19,7 +19,7 @@ migrations_dir = "migrations"
 
 [observability]
 [observability.logs]
-enabled = false
+enabled = true
 invocation_logs = true
 
 # Set the real secret with: wrangler secret put SYNC_SECRET
