@@ -90,7 +90,7 @@ async function fetchConstructorStandings(season: number, round: number): Promise
 async function upsertRace(db: D1Database, season: number, race: JolpicaRace): Promise<number> {
   const result = await db
     .prepare(
-      `INSERT INTO races (season, round, name, circuit_name, circuit_id, locality, country, date, time, url)
+      `INSERT INTO races (season, round, name, circuit_name, circuit_id, locality, country, date, time, wikipedia_url)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(season, round) DO UPDATE SET
          name = excluded.name,
@@ -100,7 +100,7 @@ async function upsertRace(db: D1Database, season: number, race: JolpicaRace): Pr
          country = excluded.country,
          date = excluded.date,
          time = excluded.time,
-         url = excluded.url
+         wikipedia_url = excluded.wikipedia_url
        RETURNING id`
     )
     .bind(
@@ -135,7 +135,7 @@ async function upsertRaceEntries(db: D1Database, raceId: number, results: Jolpic
     return db
       .prepare(
         `INSERT INTO race_entries
-           (race_id, driver_id, driver_code, driver_name, constructor, grid_position, finish_position, status, points, fastest_lap)
+           (race_id, jolpica_driver_id, driver_code, driver_name, constructor, grid_position, finish_position, status, points, fastest_lap)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(

@@ -18,13 +18,13 @@ export interface Race {
   country: string | null;
   date: string;       // "YYYY-MM-DD"
   time: string | null; // "HH:MM:SSZ" UTC, or null
-  url: string | null;
+  wikipedia_url: string | null;
 }
 
 export interface RaceEntry {
   id: number;
   race_id: number;
-  driver_id: string;
+  jolpica_driver_id: string;
   driver_code: string;
   driver_name: string;
   constructor: string;

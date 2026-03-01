@@ -314,7 +314,7 @@ export function renderRaceDetail(
       <div class="meta">
         ${race.circuit_name}${race.locality ? ` &middot; ${race.locality}, ${race.country}` : ''}
         &middot; <span id="race-date-local">${race.date}${race.time ? ' ' + race.time : ''}</span>
-        ${race.url ? `&middot; <a href="${race.url}" target="_blank" rel="noopener">Wikipedia</a>` : ''}
+        ${race.wikipedia_url ? `&middot; <a href="${race.wikipedia_url}" target="_blank" rel="noopener">Wikipedia</a>` : ''}
       </div>
     </div>
 

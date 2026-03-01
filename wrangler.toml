@@ -15,6 +15,7 @@ crons = ["0 6 * * MON"]
 binding = "DB"
 database_name = "rearjackman"
 database_id = "c90c6cfb-13b0-42fd-9a52-8210a211ad22"
+migrations_dir = "migrations"
 
 # Set the real secret with: wrangler secret put SYNC_SECRET
 
