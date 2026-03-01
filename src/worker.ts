@@ -1,6 +1,6 @@
 import type { Env, Race, RaceEntry, StandingsSnapshot } from './types';
 import { syncSeason } from './sync';
-import { renderHome, renderSeasonList, renderRaceDetail } from './render';
+import { renderHome, renderSeasonList, renderRaceDetail } from './ui/render';
 
 // Seasons shown on the home page — dynamically starts from the current year
 const CURRENT_YEAR = 2026;

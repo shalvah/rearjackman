@@ -13,13 +13,13 @@ For each race, the app shows:
 - Tailwind
 
 ## Architecture
-The core of this app is data fetching and rendering. Thus there are two main flows:
+The app is primarily text-based. The core of this app is data fetching and rendering. Thus there are two main flows:
 - Sync: Background task to fetch data from various data sources.
 - Serve: UI to render this data
 
 ## Todo
-- Race page: Circuit map
 - Race page: Results from previous seasons
+- Race page: Circuit map
 - Sync: Only sync latest rounds since the last complete sync
 - Sync: Make sync resumable
 - RSS news feeds, piped through a tiny LLM to determine what's actually newsworthy or not

@@ -1,4 +1,4 @@
-import type { Race } from '../types';
+import type { Race } from '../../types';
 import { layout, formatDate } from '../layout';
 
 export function renderSeasonList(season: number, races: Race[]): string {

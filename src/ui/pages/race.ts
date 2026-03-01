@@ -1,4 +1,4 @@
-import type { Race, RaceEntry, StandingsSnapshot } from '../types';
+import type { Race, RaceEntry, StandingsSnapshot } from '../../types';
 import { layout, escHtml, posDeltaHtml, showMoreBtn } from '../layout';
 
 const PREVIEW = 5;
