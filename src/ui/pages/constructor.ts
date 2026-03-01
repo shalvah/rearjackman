@@ -62,7 +62,10 @@ function renderSeasonTable(results: (RaceEntry & { race: Race })[], season: numb
     return (a.grid_position ?? 99) - (b.grid_position ?? 99);
   });
 
-  const tableRows = sorted.map((entry, i) => {
+  const tableRows: string[] = [];
+  const cards: string[] = [];
+
+  sorted.forEach((entry, i) => {
     const race = entry.race;
     const finishPos = entry.finish_position ?? '—';
     const gridPos = entry.grid_position ?? '—';
@@ -103,7 +106,8 @@ function renderSeasonTable(results: (RaceEntry & { race: Race })[], season: numb
       ? '' 
       : `<a href="/${race.season}/${race.round}">R${race.round} &middot; ${escHtml(race.name)}</a>`;
 
-    return `
+    // Table Row
+    tableRows.push(`
       <tr>
         <td${styleAttr(cellStyle)}>${raceDisplay}</td>
         <td${styleAttr(cellStyle)}>${driverLink}</td>
@@ -112,8 +116,22 @@ function renderSeasonTable(results: (RaceEntry & { race: Race })[], season: numb
         <td${styleAttr(cellStyle)}>${status}</td>
         <td${rightAlignStyle}>${pts}</td>
       </tr>
-    `;
-  }).join('\n');
+    `);
+
+    // Mobile Card
+    cards.push(`<li class="result-card">
+      <div class="result-card-top">
+        <span class="result-card-pos">${finishPos}${posDelta}</span>
+        <span class="result-card-driver">${driverLink}</span>
+        <span class="result-card-pts"><strong>${pts}</strong> pts</span>
+      </div>
+      <div class="result-card-meta">
+        <span><a href="/${race.season}/${race.round}">R${race.round} &middot; ${escHtml(race.name)}</a></span>
+        <span>Grid: ${gridPos}</span>
+        <span>${status}</span>
+      </div>
+    </li>`);
+  });
 
   return `
     <div class="results-table-wrap">
@@ -129,9 +147,12 @@ function renderSeasonTable(results: (RaceEntry & { race: Race })[], season: numb
           </tr>
         </thead>
         <tbody>
-          ${tableRows}
+          ${tableRows.join('\n')}
         </tbody>
       </table>
     </div>
+    <ul class="results-cards">
+      ${cards.join('\n')}
+    </ul>
   `;
 }

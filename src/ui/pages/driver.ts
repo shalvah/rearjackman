@@ -51,7 +51,10 @@ function renderSeasonTable(results: (RaceEntry & { race: Race })[]): string {
   // Ensure results are sorted by round
   const sorted = [...results].sort((a, b) => a.race.round - b.race.round);
 
-  const tableRows = sorted.map(entry => {
+  const tableRows: string[] = [];
+  const cards: string[] = [];
+
+  sorted.forEach(entry => {
     const race = entry.race;
     const finishPos = entry.finish_position ?? '—';
     const gridPos = entry.grid_position ?? '—';
@@ -67,7 +70,8 @@ function renderSeasonTable(results: (RaceEntry & { race: Race })[]): string {
       ? posDeltaHtml(gridNum - finishNum)
       : '';
 
-    return `
+    // Table Row
+    tableRows.push(`
       <tr>
         <td><a href="/${race.season}/${race.round}">R${race.round} &middot; ${escHtml(race.name)}</a></td>
         <td>${escHtml(entry.constructor)}</td>
@@ -76,8 +80,22 @@ function renderSeasonTable(results: (RaceEntry & { race: Race })[]): string {
         <td>${status}</td>
         <td style="text-align:right">${pts}</td>
       </tr>
-    `;
-  }).join('\n');
+    `);
+
+    // Mobile Card
+    cards.push(`<li class="result-card">
+      <div class="result-card-top">
+        <span class="result-card-pos">${finishPos}${posDelta}</span>
+        <span class="result-card-driver"><a href="/${race.season}/${race.round}">R${race.round} &middot; ${escHtml(race.name)}</a></span>
+        <span class="result-card-pts"><strong>${pts}</strong> pts</span>
+      </div>
+      <div class="result-card-meta">
+        <span>${escHtml(entry.constructor)}</span>
+        <span>Grid: ${gridPos}</span>
+        <span>${status}</span>
+      </div>
+    </li>`);
+  });
 
   return `
     <div class="results-table-wrap">
@@ -93,9 +111,12 @@ function renderSeasonTable(results: (RaceEntry & { race: Race })[]): string {
           </tr>
         </thead>
         <tbody>
-          ${tableRows}
+          ${tableRows.join('\n')}
         </tbody>
       </table>
     </div>
+    <ul class="results-cards">
+      ${cards.join('\n')}
+    </ul>
   `;
 }
