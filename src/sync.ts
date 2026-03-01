@@ -58,7 +58,7 @@ async function jolpicaFetch<T>(path: string): Promise<JolpicaResponse<T>> {
 }
 
 // Fetch the schedule (all races) for a season
-async function fetchSchedule(season: number): Promise<JolpicaRace[]> {
+export async function fetchSchedule(season: number): Promise<JolpicaRace[]> {
   const data = await jolpicaFetch<JolpicaRace>(`/${season}`);
   return data.MRData.RaceTable?.Races ?? [];
 }

@@ -1,6 +1,8 @@
 import { FAVICON_SVG } from './assets';
 import type { Env, Race, RaceEntry, StandingsSnapshot } from './types';
 import { syncSeason } from './sync';
+import type { JolpicaRace } from './types';
+import { fetchSchedule } from './sync';
 import { renderHome, renderSeasonList, renderRaceDetail, renderDriverPage, renderConstructorPage } from './ui/render';
 
 const CURRENT_YEAR = 2026; // Hardcoded because `new Date()` returns 1970 in Cloudflare Workers' global scope.
@@ -66,14 +68,37 @@ export default {
   },
 
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    // Sync the current season — runs on cron schedule defined in wrangler.toml
     const season = new Date().getFullYear();
-    console.log(`[cron] Starting sync for ${season} season`);
-    ctx.waitUntil(
-      syncSeason(season, env.DB)
-        .then((result) => console.log(`[cron] Sync complete:`, JSON.stringify(result)))
-        .catch((err) => console.error(`[cron] Sync failed:`, err))
-    );
+    const today = new Date().toISOString().slice(0, 10);
+    console.log(`[cron] Checking schedule for ${season} season`);
+
+    ctx.waitUntil((async () => {
+      try {
+        const races = await fetchSchedule(season);
+        
+        const completedRaces = races.filter((r: JolpicaRace) => r.date <= today);
+        
+        if (completedRaces.length === 0) {
+          console.log(`[cron] No races completed yet for ${season}. Skipping sync.`);
+          return;
+        }
+
+        const lastRace = completedRaces[completedRaces.length - 1];
+        const lastRound = parseInt(lastRace.round);
+
+        console.log(`[cron] Last completed race: Round ${lastRound} (${lastRace.raceName}) on ${lastRace.date}`);
+        console.log(`[cron] Queuing sync for ${season} (Round ${lastRound} only)`);
+
+        await env.SYNC_QUEUE.send({ 
+          season, 
+          fromRound: lastRound, 
+          toRound: lastRound 
+        });
+
+      } catch (err) {
+        console.error(`[cron] Failed to schedule sync:`, err);
+      }
+    })());
   },
 
   async queue(batch: MessageBatch<{ season: number; fromRound?: number; toRound?: number }>, env: Env): Promise<void> {
