@@ -1,5 +1,5 @@
 import type { Race, RaceEntry, StandingsSnapshot } from '../../types';
-import { layout, escHtml, posDeltaHtml, showMoreBtn } from '../layout';
+import { layout, escHtml, posDeltaHtml, showMoreBtn, formatDate } from '../layout';
 
 const PREVIEW = 5;
 
@@ -11,10 +11,12 @@ export function renderRaceDetail(
   driversBefore: StandingsSnapshot[],
   constructorsBefore: StandingsSnapshot[],
   driversAfter: StandingsSnapshot[],
-  constructorsAfter: StandingsSnapshot[]
+  constructorsAfter: StandingsSnapshot[],
+  previousRaces: Race[]
 ): string {
   const hasResults = entries.length > 0;
   const hasStandings = driversAfter.length > 0;
+  const hasPreviousRaces = previousRaces.length > 0;
 
   const body = `
     <div class="breadcrumb">
@@ -36,6 +38,8 @@ export function renderRaceDetail(
     ${hasResults ? renderGridResults(entries) : '<p style="color:var(--muted)">Results not yet available.</p>'}
 
     ${hasStandings ? renderStandingsSection(race, driversBefore, constructorsBefore, driversAfter, constructorsAfter) : ''}
+
+    ${hasPreviousRaces ? renderPreviousRaces(previousRaces) : ''}
 
     <script>
       // Convert race date/time to local timezone
@@ -152,12 +156,12 @@ function renderStandingsSection(
   const constructorsBeforeMap = new Map(constructorsBefore.map((s) => [s.entity_id, s]));
 
   const prevRound = race.round - 1;
-  const beforeLabel = prevRound === 0 ? 'Pre-season' : `After Round ${prevRound}`;
+  const beforeLabel = prevRound === 0 ? 'Pre-season' : `after Round ${prevRound}`;
 
   return `
     <h2>Championship Standings</h2>
     <p style="color:var(--muted);font-size:0.8rem;margin-bottom:16px">
-      Deltas vs. ${beforeLabel}
+      Compared to ${beforeLabel}
     </p>
 
     <div class="standings-grid">
@@ -206,3 +210,27 @@ function standingsRow(after: StandingsSnapshot, before: StandingsSnapshot | unde
     <td style="text-align:right">${after.wins}</td>
   </tr>`;
 }
+
+function renderPreviousRaces(races: Race[]): string {
+  const rows = races.map((race, i) => {
+    const isHidden = i >= PREVIEW;
+    const dateStr = formatDate(race.date);
+    return `<li${isHidden ? ' class="collapsed-row"' : ''}>
+      <a href="/${race.season}/${race.round}" style="display:flex;gap:12px;padding:8px 4px;border-bottom:1px solid var(--border);color:var(--text);align-items:baseline;">
+        <span style="color:var(--muted);font-weight:700;min-width:40px">${race.season}</span>
+        <span style="flex:1">${race.name}</span>
+        <span style="color:var(--muted);font-size:0.8rem">${dateStr}</span>
+      </a>
+    </li>`;
+  });
+
+  return `
+    <h2>Previous Seasons at this Circuit</h2>
+    <div class="collapsible-section" data-expanded="false">
+      <ul style="list-style:none;">
+        ${rows.join('\n')}
+      </ul>
+      ${showMoreBtn(races.length, PREVIEW)}
+    </div>`;
+}
+
