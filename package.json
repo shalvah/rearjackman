@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "build": "tsc --noEmit"
+    "build": "tsc --noEmit",
+    "sync:local": "curl \"http://localhost:8787/api/sync/2026\" -H \"X-Sync-Secret: dev-secret\""
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240821.1",

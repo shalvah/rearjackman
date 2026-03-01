@@ -1,4 +1,5 @@
 import type { Race, RaceEntry, StandingsSnapshot } from '../../types';
+
 import { layout, escHtml, posDeltaHtml, showMoreBtn, formatDate } from '../layout';
 
 const PREVIEW = 5;
@@ -12,11 +13,11 @@ export function renderRaceDetail(
   constructorsBefore: StandingsSnapshot[],
   driversAfter: StandingsSnapshot[],
   constructorsAfter: StandingsSnapshot[],
-  previousRaces: Race[]
+  otherSeasons: number[]
 ): string {
   const hasResults = entries.length > 0;
   const hasStandings = driversAfter.length > 0;
-  const hasPreviousRaces = previousRaces.length > 0;
+  const hasotherRaces = otherSeasons.length > 0;
 
   const body = `
     <div class="breadcrumb">
@@ -33,7 +34,7 @@ export function renderRaceDetail(
         &middot; <span id="race-date-local">${race.date}${race.time ? ' ' + race.time : ''}</span>
         ${race.wikipedia_url ? `&middot; <a href="${race.wikipedia_url}" target="_blank" rel="noopener">Wikipedia</a>` : ''}
 
-    ${hasPreviousRaces ? ` &middot; Previous seasons: ` + renderPreviousRaces(previousRaces) : ''}
+    ${hasotherRaces ? ` &middot; Other seasons: ` + renderotherRaces(otherSeasons, race.round) : ''}
       </div>
     </div>
 
@@ -231,10 +232,8 @@ function standingsRow(after: StandingsSnapshot, before: StandingsSnapshot | unde
   </tr>`;
 }
 
-function renderPreviousRaces(races: Race[]): string {
-  const rows = races.map((race, i) => {
-    return `<a href="/${race.season}/${race.round}">${race.season}</a> &middot; `;
-  });
-
-  return rows.join('\n');
+function renderotherRaces(seasons: number[], round: number): string {
+  return seasons.map((season) => {
+    return `<a href="/${season}/${round}">${season}</a>`;
+  }).join(' &middot; \n');
 }
