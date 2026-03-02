@@ -164,7 +164,7 @@ export const css = `
   /* ---- Home ---- */
   .home-seasons { list-style: none; }
   .home-seasons li { margin: 4px 0; }
-  .home-seasons a { font-size: 1.1rem; color: var(--text); }
+  .home-seasons a { font-size: 1.5rem; color: var(--text); }
   .home-seasons a:hover { color: var(--accent); text-decoration: none; }
   .home-seasons .current { color: var(--accent); font-weight: 700; }
 
