@@ -11,8 +11,8 @@ export function renderSeasonList(season: number, races: Race[]): string {
       return `<li>
         <a href="/${season}/${race.round}">
           <span class="round-num">${race.round}</span>
-          <span class="race-name">${race.name}</span>
-          <span class="race-date">${dateStr}</span> <span class="circuit">&middot; ${isUpcoming ? '<span class="upcoming">UPCOMING</span>' : race.circuit_name}</span>
+          <span class="race-name">${race.name} ${isUpcoming ? '<span class="upcoming">UPCOMING</span>' : ''}</span>
+          <span class="race-date">${dateStr}</span> <span class="circuit">&middot; ${race.circuit_name}</span>
         </a>
       </li>`;
     })
