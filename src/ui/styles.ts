@@ -19,7 +19,7 @@ export const css = `
     color: var(--text);
     font-family: var(--font);
     font-size: 14px;
-    line-height: 1.6;
+    line-height: 2.0;
     max-width: 960px;
     margin: 0 auto;
     padding: 24px 16px 64px;
