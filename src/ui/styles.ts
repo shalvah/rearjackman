@@ -158,7 +158,7 @@ export const css = `
   .season-list .round-num { color: var(--muted); font-size: 0.8rem; min-width: 24px; }
   .season-list .race-name { flex: 1; }
   .season-list .race-date { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
-  .season-list .circuit { color: var(--muted); font-size: 0.8rem; min-width: 120px; text-align: right; }
+  .season-list .circuit { color: var(--muted); font-size: 0.8rem; min-width: 120px; }
   .season-list .upcoming { color: var(--accent); font-size: 0.75rem; font-weight: 600; }
 
   /* ---- Home ---- */

@@ -34,7 +34,7 @@ export function renderRaceDetail(
         &middot; <span id="race-date-local">${race.date}${race.time ? ' ' + race.time : ''}</span>
         ${race.wikipedia_url ? `&middot; <a href="${race.wikipedia_url}" target="_blank" rel="noopener">Wikipedia</a>` : ''}
 
-    ${hasotherRaces ? ` &middot; Other seasons: ` + renderotherRaces(otherSeasons, race.round) : ''}
+    ${hasotherRaces ? ` &middot; Other seasons: ` + renderOtherRaces(otherSeasons, race.round) : ''}
       </div>
     </div>
 
@@ -232,7 +232,7 @@ function standingsRow(after: StandingsSnapshot, before: StandingsSnapshot | unde
   </tr>`;
 }
 
-function renderotherRaces(seasons: number[], round: number): string {
+function renderOtherRaces(seasons: number[], round: number): string {
   return seasons.map((season) => {
     return `<a href="/${season}/${round}">${season}</a>`;
   }).join(' &middot; \n');
