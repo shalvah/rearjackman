@@ -11,6 +11,11 @@ routes = [
 [triggers]
 crons = ["0 6 * * MON"]
 
+[[kv_namespaces]]
+binding = "CACHE"
+id = "a3426f35669c4e048a0d28416200bf4c"
+preview_id = "f6158a5648344a6281f99c087fa8e050"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "rearjackman"

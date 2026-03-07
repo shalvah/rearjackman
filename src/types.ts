@@ -4,6 +4,7 @@ export interface Env {
   DB: D1Database;
   SYNC_SECRET: string;
   SYNC_QUEUE: Queue<{ season: number; fromRound?: number; toRound?: number }>;
+  CACHE: KVNamespace;
 }
 
 // ---- Database row types ----
