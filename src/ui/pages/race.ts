@@ -71,6 +71,27 @@ export function renderRaceDetail(
 
 // ---- Qualifying Results section ----
 
+// Parse a lap time string ("1:15.096" or "75.096") into milliseconds, or null if invalid
+function parseLapTimeMs(t: string | null): number | null {
+  if (!t) return null;
+  const parts = t.split(':');
+  if (parts.length === 2) {
+    const mins = parseInt(parts[0], 10);
+    const secs = parseFloat(parts[1]);
+    if (isNaN(mins) || isNaN(secs)) return null;
+    return (mins * 60 + secs) * 1000;
+  }
+  const secs = parseFloat(parts[0]);
+  return isNaN(secs) ? null : secs * 1000;
+}
+
+// Format a delta in ms as "+0.000s", always showing sign, null → ''
+function fmtDelta(ms: number | null): string {
+  if (ms === null) return '';
+  const sign = ms >= 0 ? '+' : '−';
+  return `<span style="color:var(--muted);font-size:0.72rem"> ${sign}${(Math.abs(ms) / 1000).toFixed(3)}s</span>`;
+}
+
 function renderQualiResults(entries: QualiEntry[], season: number): string {
   const tableRows: string[] = [];
   const cards: string[] = [];
@@ -84,26 +105,35 @@ function renderQualiResults(entries: QualiEntry[], season: number): string {
     const q2 = e.q2 ?? '—';
     const q3 = e.q3 ?? '—';
 
+    const prev = i > 0 ? entries[i - 1] : null;
+    const calcDelta = (cur: string | null, prevTime: string | null): string => {
+      const a = parseLapTimeMs(cur), b = parseLapTimeMs(prevTime);
+      return fmtDelta(a !== null && b !== null ? a - b : null);
+    };
+    const q1Delta = calcDelta(e.q1, prev?.q1 ?? null);
+    const q2Delta = calcDelta(e.q2, prev?.q2 ?? null);
+    const q3Delta = calcDelta(e.q3, prev?.q3 ?? null);
+
     tableRows.push(`<tr${isHidden ? ' class="collapsed-row"' : ''}>
       <td>${e.position}</td>
       <td>${driverDisplay}</td>
       <td>${escHtml(e.constructor)}</td>
-      <td>${q1}</td>
-      <td>${q2}</td>
-      <td>${q3}</td>
+      <td>${q1}${q1Delta}</td>
+      <td>${q2}${q2Delta}</td>
+      <td>${q3}${q3Delta}</td>
     </tr>`);
 
     cards.push(`<li class="result-card${isHidden ? ' collapsed-card' : ''}">
       <div class="result-card-top">
         <span class="result-card-pos">${e.position}</span>
         <span class="result-card-driver">${driverDisplay}</span>
-        <span class="result-card-pts">${q3 !== '—' ? q3 : q2 !== '—' ? q2 : q1}</span>
+        <span class="result-card-pts">${q3 !== '—' ? q3 + q3Delta : q2 !== '—' ? q2 + q2Delta : q1 + q1Delta}</span>
       </div>
       <div class="result-card-meta">
         <span>${escHtml(e.constructor)}</span>
-        <span>Q1: ${q1}</span>
-        ${e.q2 ? `<span>Q2: ${q2}</span>` : ''}
-        ${e.q3 ? `<span>Q3: ${q3}</span>` : ''}
+        <span>Q1: ${q1}${q1Delta}</span>
+        ${e.q2 ? `<span>Q2: ${q2}${q2Delta}</span>` : ''}
+        ${e.q3 ? `<span>Q3: ${q3}${q3Delta}</span>` : ''}
       </div>
     </li>`);
   });
