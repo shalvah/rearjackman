@@ -12,7 +12,7 @@ export function renderHome(seasons: number[], latestSeason: number): string {
 
   const body = `
     <h1>Rear JackMan</h1>
-    <p style="color:var(--muted);margin:8px 0 32px">F1 season tracker</p>
+    <p style="color:var(--muted);margin:8px 0 32px">F1 season tracker for busy people</p>
     <h2>Seasons</h2>
     <ul class="home-seasons">
       ${items}
