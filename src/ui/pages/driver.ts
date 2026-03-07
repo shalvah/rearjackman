@@ -33,7 +33,7 @@ export function renderDriverPage(
     </div>
   `;
 
-  return layout(title, body, '', `<a href="/${season}">${season}</a> / Drivers / ${escHtml(driverName)}`);
+  return layout(title, body);
 }
 
 function renderSeasonTable(results: (RaceEntry & { race: Race })[]): string {

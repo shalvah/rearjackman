@@ -24,5 +24,5 @@ export function renderSeasonList(season: number, races: Race[]): string {
       ${rows}
     </ul>`;
 
-  return layout(`${season} Season`, body, '', `<a href="/">Home</a> / ${season}`);
+  return layout(`${season} Season`, body);
 }

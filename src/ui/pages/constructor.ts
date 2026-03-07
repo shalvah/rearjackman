@@ -33,7 +33,7 @@ export function renderConstructorPage(
     </div>
   `;
 
-  return layout(title, body, '', `<a href="/${season}">${season}</a> / Constructors / ${escHtml(constructorName)}`);
+  return layout(title, body);
 }
 
 function renderSeasonTable(results: (RaceEntry & { race: Race })[], season: number): string {
