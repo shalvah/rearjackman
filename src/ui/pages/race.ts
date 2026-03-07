@@ -140,7 +140,6 @@ function renderQualiResults(entries: QualiEntry[], season: number): string {
 
   return `
     <h2>Qualifying</h2>
-    <p style="color:var(--muted);font-size:0.8rem;margin-bottom:16px">Race results not yet available.</p>
     <div class="collapsible-section" data-expanded="false">
       <div class="results-table-wrap">
         <table>
