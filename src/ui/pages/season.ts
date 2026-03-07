@@ -6,7 +6,8 @@ export function renderSeasonList(season: number, races: Race[]): string {
 
   const rows = races
     .map((race) => {
-      const isUpcoming = race.date > today;
+      // Race is upcoming if its date is more than two days in the future (so we can show quali)
+      const isUpcoming = new Date(race.date) > new Date(new Date().getTime() + 2 * 24 * 60 * 60 * 1000);
       const dateStr = formatDate(race.date);
       return `<li>
         <a href="/${season}/${race.round}">
