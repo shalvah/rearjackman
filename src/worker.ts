@@ -127,38 +127,13 @@ export default {
 
 async function handleHome(env: Env): Promise<Response> {
   // Fetch the latest season's races to determine the current/next race for the OG description
-  const races = await env.DB.prepare(
-    'SELECT name, date FROM races WHERE season = ? ORDER BY round ASC'
+  const { results: seasonRaces} = await env.DB.prepare(
+    'SELECT name, date, round FROM races WHERE season = ? ORDER BY round ASC'
   )
     .bind(LATEST_SEASON)
-    .all<{ name: string; date: string }>();
+    .all<{ name: string; date: string; round: number }>();
 
-  let ogDescription = '';
-
-  if (races.results.length > 0) {
-    const today = new Date().toISOString().slice(0, 10);
-
-    // Check if we're in a race weekend (Fri–Sun: race_date - 2 days through race_date)
-    const ongoingRace = races.results.find((r) => {
-      const raceDate = r.date;
-      const fridayDate = new Date(new Date(raceDate).getTime() - 2 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .slice(0, 10);
-      return today >= fridayDate && today <= raceDate;
-    });
-
-    if (ongoingRace) {
-      ogDescription = `Ongoing: ${ongoingRace.name}`;
-    } else {
-      // Find the next upcoming race (first race with date > today)
-      const nextRace = races.results.find((r) => r.date > today);
-      if (nextRace) {
-        ogDescription = `Up Next: ${nextRace.name}`;
-      }
-    }
-  }
-
-  return htmlResponse(renderHome(KNOWN_SEASONS, LATEST_SEASON, ogDescription));
+  return htmlResponse(renderHome(KNOWN_SEASONS, LATEST_SEASON, seasonRaces));
 }
 
 async function handleSync(request: Request, env: Env, ctx: ExecutionContext, seasonStr: string): Promise<Response> {
