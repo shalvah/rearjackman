@@ -36,6 +36,19 @@ export interface RaceEntry {
   fastest_lap: number; // 0 | 1
 }
 
+export interface QualiEntry {
+  id: number;
+  race_id: number;
+  jolpica_driver_id: string;
+  driver_code: string;
+  driver_name: string;
+  constructor: string;
+  position: number;
+  q1: string | null;
+  q2: string | null;
+  q3: string | null;
+}
+
 export interface StandingsSnapshot {
   id: number;
   race_id: number;
@@ -74,6 +87,7 @@ export interface JolpicaRace {
   time?: string;
   url: string;
   Results?: JolpicaResult[];
+  QualifyingResults?: JolpicaQualifyingResult[];
 }
 
 export interface JolpicaResult {
@@ -99,6 +113,24 @@ export interface JolpicaResult {
     lap: string;
     Time: { time: string };
   };
+}
+
+export interface JolpicaQualifyingResult {
+  number: string;
+  position: string;
+  Driver: {
+    driverId: string;
+    code: string;
+    givenName: string;
+    familyName: string;
+  };
+  Constructor: {
+    constructorId: string;
+    name: string;
+  };
+  Q1?: string;
+  Q2?: string;
+  Q3?: string;
 }
 
 export interface JolpicaStandingsList {

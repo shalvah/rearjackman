@@ -2,6 +2,7 @@ import type {
   JolpicaResponse,
   JolpicaRace,
   JolpicaResult,
+  JolpicaQualifyingResult,
   JolpicaDriverStanding,
   JolpicaConstructorStanding,
 } from './types';
@@ -68,6 +69,13 @@ async function fetchResults(season: number, round: number): Promise<JolpicaResul
   const data = await jolpicaFetch<JolpicaRace>(`/${season}/${round}/results`);
   const races = data.MRData.RaceTable?.Races ?? [];
   return races[0]?.Results ?? [];
+}
+
+// Fetch qualifying results for a specific round
+async function fetchQualifying(season: number, round: number): Promise<JolpicaQualifyingResult[]> {
+  const data = await jolpicaFetch<JolpicaRace>(`/${season}/${round}/qualifying`);
+  const races = data.MRData.RaceTable?.Races ?? [];
+  return races[0]?.QualifyingResults ?? [];
 }
 
 // Fetch driver standings after a specific round (round=0 = pre-season / empty)
@@ -151,6 +159,35 @@ async function upsertRaceEntries(db: D1Database, raceId: number, results: Jolpic
         isFastestLap
       );
   });
+
+  if (stmts.length > 0) {
+    await db.batch(stmts);
+  }
+}
+
+// Replace all qualifying entries for a race
+async function upsertQualifyingEntries(db: D1Database, raceId: number, results: JolpicaQualifyingResult[]): Promise<void> {
+  await db.prepare('DELETE FROM qualifying_entries WHERE race_id = ?').bind(raceId).run();
+
+  const stmts = results.map((r) =>
+    db
+      .prepare(
+        `INSERT INTO qualifying_entries
+           (race_id, jolpica_driver_id, driver_code, driver_name, constructor, position, q1, q2, q3)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        raceId,
+        r.Driver.driverId,
+        r.Driver.code ?? '',
+        `${r.Driver.givenName} ${r.Driver.familyName}`,
+        r.Constructor.name,
+        parseInt(r.position),
+        r.Q1 ?? null,
+        r.Q2 ?? null,
+        r.Q3 ?? null
+      )
+  );
 
   if (stmts.length > 0) {
     await db.batch(stmts);
@@ -258,9 +295,29 @@ export async function syncSeason(season: number, db: D1Database, fromRound = 1, 
     // Upsert the race row regardless of completion
     const raceId = await upsertRace(db, season, race);
 
-    // Only fetch results + standings if the race has occurred
-    if (raceDate > today) {
+    // Determine if the race is upcoming, imminent (within 30 hours), or past
+    const raceDateTime = race.time ? new Date(`${race.date}T${race.time}`) : new Date(`${race.date}T00:00:00Z`);
+    const msUntilRace = raceDateTime.getTime() - Date.now();
+    const isUpcoming = raceDate > today;
+    const isImminent = isUpcoming && msUntilRace <= 30 * 60 * 60 * 1000;
+
+    if (isUpcoming && !isImminent) {
       log.push(`${raceLabel} — upcoming, skipping results.`);
+      racesSkipped++;
+      await sleep(DELAY_MS);
+      continue;
+    }
+
+    if (isImminent) {
+      log.push(`${raceLabel} — imminent (within 30h), fetching qualifying results...`);
+      await sleep(DELAY_MS);
+      const qualiResults = await fetchQualifying(season, round);
+      if (qualiResults.length > 0) {
+        await upsertQualifyingEntries(db, raceId, qualiResults);
+        log.push(`  Stored ${qualiResults.length} qualifying entries.`);
+      } else {
+        log.push(`  No qualifying results yet.`);
+      }
       racesSkipped++;
       await sleep(DELAY_MS);
       continue;
@@ -271,7 +328,15 @@ export async function syncSeason(season: number, db: D1Database, fromRound = 1, 
     const results = await fetchResults(season, round);
 
     if (results.length === 0) {
-      log.push(`  No results yet, skipping.`);
+      log.push(`  No race results yet, checking for qualifying results...`);
+      await sleep(DELAY_MS);
+      const qualiResults = await fetchQualifying(season, round);
+      if (qualiResults.length > 0) {
+        await upsertQualifyingEntries(db, raceId, qualiResults);
+        log.push(`  Stored ${qualiResults.length} qualifying entries.`);
+      } else {
+        log.push(`  No qualifying results yet either, skipping.`);
+      }
       racesSkipped++;
       continue;
     }

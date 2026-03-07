@@ -1,4 +1,4 @@
-import type { Race, RaceEntry, StandingsSnapshot } from '../../types';
+import type { Race, RaceEntry, QualiEntry, StandingsSnapshot } from '../../types';
 
 import { layout, escHtml, posDeltaHtml, showMoreBtn, formatDate } from '../layout';
 
@@ -9,6 +9,7 @@ const PREVIEW = 5;
 export function renderRaceDetail(
   race: Race,
   entries: RaceEntry[],
+  qualiEntries: QualiEntry[],
   driversBefore: StandingsSnapshot[],
   constructorsBefore: StandingsSnapshot[],
   driversAfter: StandingsSnapshot[],
@@ -16,6 +17,7 @@ export function renderRaceDetail(
   otherSeasons: number[]
 ): string {
   const hasResults = entries.length > 0;
+  const hasQuali = qualiEntries.length > 0;
   const hasStandings = driversAfter.length > 0;
   const hasotherRaces = otherSeasons.length > 0;
 
@@ -38,7 +40,12 @@ export function renderRaceDetail(
       </div>
     </div>
 
-    ${hasResults ? renderGridResults(entries, race.season, constructorsAfter) : '<p style="color:var(--muted)">Results not yet available.</p>'}
+    ${hasResults
+      ? renderGridResults(entries, race.season, constructorsAfter)
+      : hasQuali
+        ? renderQualiResults(qualiEntries, race.season)
+        : '<p style="color:var(--muted)">Results not yet available.</p>'
+    }
 
     ${hasStandings ? renderStandingsSection(race, driversBefore, constructorsBefore, driversAfter, constructorsAfter) : ''}
 
@@ -60,6 +67,69 @@ export function renderRaceDetail(
     </script>`;
 
   return layout(`${race.name} ${race.season}`, body);
+}
+
+// ---- Qualifying Results section ----
+
+function renderQualiResults(entries: QualiEntry[], season: number): string {
+  const tableRows: string[] = [];
+  const cards: string[] = [];
+
+  entries.forEach((e, i) => {
+    const isHidden = i >= PREVIEW;
+    const driverLink = `<a href="/driver/${e.jolpica_driver_id}?season=${season}">${e.driver_name}</a>`;
+    const driverDisplay = `${e.driver_code ? `<strong>${e.driver_code}</strong> ` : ''}${driverLink}`;
+
+    const q1 = e.q1 ?? '—';
+    const q2 = e.q2 ?? '—';
+    const q3 = e.q3 ?? '—';
+
+    tableRows.push(`<tr${isHidden ? ' class="collapsed-row"' : ''}>
+      <td>${e.position}</td>
+      <td>${driverDisplay}</td>
+      <td>${escHtml(e.constructor)}</td>
+      <td>${q1}</td>
+      <td>${q2}</td>
+      <td>${q3}</td>
+    </tr>`);
+
+    cards.push(`<li class="result-card${isHidden ? ' collapsed-card' : ''}">
+      <div class="result-card-top">
+        <span class="result-card-pos">${e.position}</span>
+        <span class="result-card-driver">${driverDisplay}</span>
+        <span class="result-card-pts">${q3 !== '—' ? q3 : q2 !== '—' ? q2 : q1}</span>
+      </div>
+      <div class="result-card-meta">
+        <span>${escHtml(e.constructor)}</span>
+        <span>Q1: ${q1}</span>
+        ${e.q2 ? `<span>Q2: ${q2}</span>` : ''}
+        ${e.q3 ? `<span>Q3: ${q3}</span>` : ''}
+      </div>
+    </li>`);
+  });
+
+  return `
+    <h2>Qualifying</h2>
+    <p style="color:var(--muted);font-size:0.8rem;margin-bottom:16px">Race results not yet available.</p>
+    <div class="collapsible-section" data-expanded="false">
+      <div class="results-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Pos</th>
+              <th>Driver</th>
+              <th>Constructor</th>
+              <th>Q1</th>
+              <th>Q2</th>
+              <th>Q3</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows.join('\n')}</tbody>
+        </table>
+      </div>
+      <ul class="results-cards">${cards.join('\n')}</ul>
+      ${showMoreBtn(entries.length, PREVIEW)}
+    </div>`;
 }
 
 // ---- Grid & Results section ----

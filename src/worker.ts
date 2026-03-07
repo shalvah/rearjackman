@@ -1,5 +1,5 @@
 import { FAVICON_SVG } from './assets';
-import type { Env, Race, RaceEntry, StandingsSnapshot } from './types';
+import type { Env, Race, RaceEntry, QualiEntry, StandingsSnapshot } from './types';
 import { syncSeason } from './sync';
 import type { JolpicaRace } from './types';
 import { fetchSchedule } from './sync';
@@ -175,10 +175,13 @@ async function handleRaceDetail(env: Env, season: number, round: number): Promis
     return notFound(`Race not found: ${season} round ${round}.`);
   }
 
-  const [entries, snapshotsBefore, snapshotsAfter] = await Promise.all([
+  const [entries, qualiEntries, snapshotsBefore, snapshotsAfter] = await Promise.all([
     env.DB.prepare('SELECT * FROM race_entries WHERE race_id = ? ORDER BY COALESCE(finish_position, 99), grid_position')
       .bind(race.id)
       .all<RaceEntry>(),
+    env.DB.prepare('SELECT * FROM qualifying_entries WHERE race_id = ? ORDER BY position')
+      .bind(race.id)
+      .all<QualiEntry>(),
     env.DB.prepare(
       "SELECT * FROM standings_snapshots WHERE race_id = ? AND snapshot_type = 'before' ORDER BY entity_type, position"
     )
@@ -202,6 +205,7 @@ async function handleRaceDetail(env: Env, season: number, round: number): Promis
     renderRaceDetail(
       race,
       entries.results,
+      qualiEntries.results,
       driversBefore,
       constructorsBefore,
       driversAfter,
