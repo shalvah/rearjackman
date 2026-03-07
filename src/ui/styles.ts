@@ -188,6 +188,7 @@ export const css = `
   .news-list {
     list-style: none;
     margin: 0;
+    font-size: 1rem;
   }
   .news-item-date {
     color: var(--muted);
