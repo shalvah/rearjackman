@@ -212,6 +212,34 @@ export const css = `
   }
   .news-item-hidden { display: none; }
 
+  /* ---- Driver page season details ---- */
+  .season-details { margin-top: 32px; }
+  .season-details:first-child { margin-top: 0; }
+  .season-summary {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    user-select: none;
+  }
+  .season-summary::-webkit-details-marker { display: none; }
+  .season-summary::before {
+    content: '▶';
+    font-size: 0.6rem;
+    color: var(--muted);
+    transition: transform 0.15s;
+    display: inline-block;
+  }
+  .season-details[open] > .season-summary::before { transform: rotate(90deg); }
+  .season-summary:hover { color: var(--text); }
+
   /* ---- Nav ---- */
   .site-nav {
     display: flex;

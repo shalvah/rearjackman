@@ -227,51 +227,46 @@ async function handleRaceDetail(env: Env, season: number, round: number): Promis
 }
 
 async function handleDriverPage(env: Env, driverId: string, season: number): Promise<Response> {
-  // Fetch results for the requested season
-  const currentResults = await env.DB.prepare(`
-    SELECT re.*, r.season, r.round, r.name as race_name, r.date, r.circuit_name 
+  // Fetch all results for this driver across all known seasons
+  const allResults = await env.DB.prepare(`
+    SELECT re.*, r.season, r.round, r.name as race_name, r.date, r.circuit_name,
+           ss.entity_id as constructor_id
     FROM race_entries re
     JOIN races r ON re.race_id = r.id
-    WHERE re.jolpica_driver_id = ? AND r.season = ?
-    ORDER BY r.round ASC
+    LEFT JOIN standings_snapshots ss
+      ON ss.race_id = re.race_id
+      AND ss.entity_type = 'constructor'
+      AND ss.entity_name = re.constructor
+      AND ss.snapshot_type = 'after'
+    WHERE re.jolpica_driver_id = ?
+    ORDER BY r.season DESC, r.round ASC
   `)
-  .bind(driverId, season)
-  .all<any>();
-
-  // Fetch results for the previous season
-  const previousResults = await env.DB.prepare(`
-    SELECT re.*, r.season, r.round, r.name as race_name, r.date, r.circuit_name 
-    FROM race_entries re
-    JOIN races r ON re.race_id = r.id
-    WHERE re.jolpica_driver_id = ? AND r.season = ?
-    ORDER BY r.round ASC
-  `)
-  .bind(driverId, season - 1)
+  .bind(driverId)
   .all<any>();
 
   // Determine driver name from results or fallback
   let driverName = driverId;
-  if (currentResults.results.length > 0) {
-    driverName = currentResults.results[0].driver_name;
-  } else if (previousResults.results.length > 0) {
-    driverName = previousResults.results[0].driver_name;
+  if (allResults.results.length > 0) {
+    driverName = allResults.results[0].driver_name;
   } else {
-    // If no results found in either season, try to find the driver name from *any* race entry
     const anyEntry = await env.DB.prepare('SELECT driver_name FROM race_entries WHERE jolpica_driver_id = ? LIMIT 1')
       .bind(driverId)
       .first<{ driver_name: string }>();
-    
     if (anyEntry) {
       driverName = anyEntry.driver_name;
     } else {
-        return notFound(`Driver not found: ${driverId}`);
+      return notFound(`Driver not found: ${driverId}`);
     }
   }
 
-  // Transform flat results into nested structure required by renderDriverPage
-  const mapResults = (rows: any[]) => {
-    return rows.map(row => ({
+  // Group results by season (descending order)
+  const bySeason = new Map<number, any[]>();
+  for (const row of allResults.results) {
+    const s: number = row.season;
+    if (!bySeason.has(s)) bySeason.set(s, []);
+    bySeason.get(s)!.push({
       ...row,
+      constructor_id: row.constructor_id ?? null,
       race: {
         id: row.race_id,
         season: row.season,
@@ -279,22 +274,15 @@ async function handleDriverPage(env: Env, driverId: string, season: number): Pro
         name: row.race_name,
         circuit_name: row.circuit_name,
         date: row.date,
-        // ... other race fields if needed
-      }
-    }));
-  };
+      },
+    });
+  }
 
-  const currentMapped = mapResults(currentResults.results);
-  const previousMapped = mapResults(previousResults.results);
+  // Sort seasons descending
+  const seasons = Array.from(bySeason.keys()).sort((a, b) => b - a);
 
   return htmlResponse(
-    renderDriverPage(
-      driverId,
-      driverName,
-      season,
-      currentMapped as any,
-      previousMapped as any
-    )
+    renderDriverPage(driverId, driverName, season, seasons, bySeason)
   );
 }
 
