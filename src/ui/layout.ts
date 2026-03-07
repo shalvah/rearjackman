@@ -11,6 +11,7 @@ export function layout(title: string, body: string, activePath = '', breadcrumb 
   <div class="site-nav-left">
     ${navLink('/', 'Home')}
     ${navLink('/news', 'News')}
+    <a href="https://github.com/shalvah/rearjackman" target="_blank" rel="noopener">GitHub</a>
   </div>
   ${breadcrumb ? `<div class="site-nav-right">${breadcrumb}</div>` : ''}
 </nav>`;
