@@ -212,6 +212,9 @@ export const css = `
   }
   .news-item-hidden { display: none; }
 
+  /* ---- External links ---- */
+  .ext-links-meta { margin-top: 6px; }
+
   /* ---- Driver page season details ---- */
   .season-details { margin-top: 32px; }
   .season-details:first-child { margin-top: 0; }

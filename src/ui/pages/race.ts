@@ -32,6 +32,7 @@ export function renderRaceDetail(
 
     ${hasotherRaces ? ` &middot; Other seasons: ` + renderOtherRaces(otherSeasons, race.round) : ''}
       </div>
+      ${renderExternalLinks(race)}
     </div>
 
     ${hasResults
@@ -329,4 +330,43 @@ function renderOtherRaces(seasons: number[], round: number): string {
   return seasons.map((season) => {
     return `<a href="/${season}/${round}">${season}</a>`;
   }).join(' &middot; \n');
+}
+
+// ---- External links section ----
+
+// "Australian Grand Prix" → "AustralianGP"
+// "São Paulo Grand Prix" → "SãoPauloGP"
+// "Abu Dhabi Grand Prix" → "AbuDhabiGP"
+function toGpHashtag(raceName: string): string {
+  return raceName
+    .replace(/\s+Grand Prix$/i, '')  // strip trailing "Grand Prix"
+    .replace(/\s+/g, '')             // collapse all spaces
+    + 'GP';
+}
+
+type ExternalLink = { label: string; url: string; description: string };
+
+function buildExternalLinks(race: Race): ExternalLink[] {
+  const hashtag = toGpHashtag(race.name);
+  return [
+    {
+      label: '@f1visualized',
+      url: `https://nitter.net/search?f=tweets&q=${encodeURIComponent(`from:f1visualized "#${hashtag}" ${race.season}`) }`,
+      description: 'Session visualizations',
+    },
+    {
+      label: '@the_lollipopman',
+      url: `https://nitter.net/search?f=tweets&q=${encodeURIComponent(`from:the_lollipopman "#${hashtag}" ${race.season}`) }`,
+      description: 'Fun takes',
+    },
+  ];
+}
+
+function renderExternalLinks(race: Race): string {
+  const links = buildExternalLinks(race);
+  const items = links.map(link =>
+    `<a href="${link.url}" target="_blank" rel="noopener">${escHtml(link.label)}</a>`
+  ).join(' &middot; ');
+
+  return `<div class="meta ext-links-meta">More: ${items}</div>`;
 }
