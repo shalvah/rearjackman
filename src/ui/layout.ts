@@ -3,7 +3,7 @@ import { collapseToggleScript } from './client';
 
 // ---- Shared page shell ----
 
-export function layout(title: string, body: string, activePath = '', breadcrumb = ''): string {
+export function layout(title: string, body: string, activePath = '', breadcrumb = '', ogTitle = ''): string {
   const navLink = (href: string, label: string) =>
     `<a href="${href}"${activePath === href ? ' class="active"' : ''}>${label}</a>`;
 
@@ -16,13 +16,20 @@ export function layout(title: string, body: string, activePath = '', breadcrumb 
   ${breadcrumb ? `<div class="site-nav-right">${breadcrumb}</div>` : ''}
 </nav>`;
 
+  const resolvedOgTitle = ogTitle || `${title} — Rear JackMan`;
+  const ogTags = `
+  <meta property="og:title" content="${escHtml(resolvedOgTitle)}">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="${escHtml(resolvedOgTitle)}">`;
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <title>${title} — Rear JackMan</title>
+  <title>${title} — Rear JackMan</title>${ogTags}
   <style>${css}</style>
 </head>
 <body>

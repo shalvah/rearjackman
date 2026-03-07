@@ -1,6 +1,6 @@
 import { layout } from '../layout';
 
-export function renderHome(seasons: number[], latestSeason: number): string {
+export function renderHome(seasons: number[], latestSeason: number, ogTitle = ''): string {
   const items = seasons
     .map((s) => {
       const isCurrent = s === latestSeason;
@@ -18,5 +18,5 @@ export function renderHome(seasons: number[], latestSeason: number): string {
       ${items}
     </ul>`;
 
-  return layout('Home', body, '/');
+  return layout('Home', body, '/', '', ogTitle);
 }

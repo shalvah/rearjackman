@@ -24,7 +24,7 @@ export default {
     try {
       // GET / — home page: list of seasons
       if (segments.length === 0) {
-        return htmlResponse(renderHome(KNOWN_SEASONS, LATEST_SEASON));
+        return handleHome(env);
       }
 
       // GET /news — F1 news page
@@ -124,6 +124,42 @@ export default {
 };
 
 // ---- Route handlers ----
+
+async function handleHome(env: Env): Promise<Response> {
+  // Fetch the latest season's races to determine the current/next race for the OG title
+  const races = await env.DB.prepare(
+    'SELECT name, date FROM races WHERE season = ? ORDER BY round ASC'
+  )
+    .bind(LATEST_SEASON)
+    .all<{ name: string; date: string }>();
+
+  let ogTitle = 'The F1 season tracker for busy people';
+
+  if (races.results.length > 0) {
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Check if we're in a race weekend (Fri–Sun: race_date - 2 days through race_date)
+    const ongoingRace = races.results.find((r) => {
+      const raceDate = r.date;
+      const fridayDate = new Date(new Date(raceDate).getTime() - 2 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+      return today >= fridayDate && today <= raceDate;
+    });
+
+    if (ongoingRace) {
+      ogTitle = `Ongoing: ${ongoingRace.name}`;
+    } else {
+      // Find the next upcoming race (first race with date > today)
+      const nextRace = races.results.find((r) => r.date > today);
+      if (nextRace) {
+        ogTitle = `Up Next: ${nextRace.name}`;
+      }
+    }
+  }
+
+  return htmlResponse(renderHome(KNOWN_SEASONS, LATEST_SEASON, ogTitle));
+}
 
 async function handleSync(request: Request, env: Env, ctx: ExecutionContext, seasonStr: string): Promise<Response> {
   const secret = request.headers.get('X-Sync-Secret');
