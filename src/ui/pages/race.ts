@@ -129,7 +129,6 @@ function renderQualiResults(entries: QualiEntry[], season: number): string {
         <span>${escHtml(e.constructor)}</span>
         <span>Q1: ${q1}</span>
         ${e.q2 ? `<span>Q2: ${q2}</span>` : ''}
-        ${e.q3 ? `<span>Q3: ${q3}</span>` : ''}
       </div>
     </li>`);
   });
