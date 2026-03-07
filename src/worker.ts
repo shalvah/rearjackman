@@ -3,7 +3,7 @@ import type { Env, Race, RaceEntry, QualiEntry, StandingsSnapshot } from './type
 import { syncSeason } from './sync';
 import type { JolpicaRace } from './types';
 import { fetchSchedule } from './sync';
-import { renderHome, renderSeasonList, renderRaceDetail, renderDriverPage, renderConstructorPage } from './ui/render';
+import { renderHome, renderSeasonList, renderRaceDetail, renderDriverPage, renderConstructorPage, renderNewsPage } from './ui/render';
 
 const CURRENT_YEAR = 2026; // Hardcoded because `new Date()` returns 1970 in Cloudflare Workers' global scope.
 const KNOWN_SEASONS = Array.from({ length: CURRENT_YEAR - 2023 }, (_, i) => CURRENT_YEAR - i);
@@ -24,6 +24,11 @@ export default {
       // GET / — home page: list of seasons
       if (segments.length === 0) {
         return htmlResponse(renderHome(KNOWN_SEASONS, LATEST_SEASON));
+      }
+
+      // GET /news — F1 news page
+      if (segments[0] === 'news' && segments.length === 1) {
+        return htmlResponse(renderNewsPage());
       }
 
       // GET /api/sync/:season — trigger sync

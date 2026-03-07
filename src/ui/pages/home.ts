@@ -18,5 +18,5 @@ export function renderHome(seasons: number[], latestSeason: number): string {
       ${items}
     </ul>`;
 
-  return layout('Home', body);
+  return layout('Home', body, '/');
 }

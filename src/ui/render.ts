@@ -3,3 +3,4 @@ export { renderSeasonList } from './pages/season';
 export { renderRaceDetail } from './pages/race';
 export { renderDriverPage } from './pages/driver';
 export { renderConstructorPage } from './pages/constructor';
+export { renderNewsPage } from './pages/news';

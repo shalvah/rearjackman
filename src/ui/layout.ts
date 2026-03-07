@@ -3,7 +3,15 @@ import { collapseToggleScript } from './client';
 
 // ---- Shared page shell ----
 
-export function layout(title: string, body: string): string {
+export function layout(title: string, body: string, activePath = ''): string {
+  const navLink = (href: string, label: string) =>
+    `<a href="${href}"${activePath === href ? ' class="active"' : ''}>${label}</a>`;
+
+  const nav = `<nav class="site-nav">
+  ${navLink('/', 'Home')}
+  ${navLink('/news', 'News')}
+</nav>`;
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,6 +22,7 @@ export function layout(title: string, body: string): string {
   <style>${css}</style>
 </head>
 <body>
+${nav}
 ${body}
 <script>${collapseToggleScript}</script>
 </body>
