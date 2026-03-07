@@ -234,7 +234,7 @@ export const css = `
     margin-bottom: 28px;
     padding-bottom: 12px;
     border-bottom: 1px solid var(--border);
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     gap: 12px;
   }
   .site-nav-left { display: flex; gap: 20px; flex-shrink: 0; }

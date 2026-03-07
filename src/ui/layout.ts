@@ -8,12 +8,12 @@ export function layout(title: string, body: string, activePath = '', breadcrumb 
     `<a href="${href}"${activePath === href ? ' class="active"' : ''}>${label}</a>`;
 
   const nav = `<nav class="site-nav">
-  <div class="site-nav-left">
-    ${navLink('/', 'Home')}
-    ${navLink('/news', 'News')}
+  ${breadcrumb ? `<div class="site-nav-left">${breadcrumb}</div>` : '<div class="site-nav-left"></div>'}
+  <div class="site-nav-right">
+    ${navLink('/', 'Home')} &nbsp;&nbsp;
+    ${navLink('/news', 'News')} &nbsp;&nbsp;
     <a href="https://github.com/shalvah/rearjackman" target="_blank" rel="noopener">GitHub</a>
   </div>
-  ${breadcrumb ? `<div class="site-nav-right">${breadcrumb}</div>` : ''}
 </nav>`;
 
   const fixedOgTitle = 'Rear JackMan — The F1 season tracker for busy people';
