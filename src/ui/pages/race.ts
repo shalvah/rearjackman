@@ -348,16 +348,22 @@ type ExternalLink = { label: string; url: string; description: string };
 
 function buildExternalLinks(race: Race): ExternalLink[] {
   const hashtag = toGpHashtag(race.name);
+  const ytQuery = encodeURIComponent(`allintitle:(${race.season} ${race.name} highlights) channel:Formula1`);
   return [
     {
       label: '@f1visualized',
-      url: `https://nitter.net/search?f=tweets&q=${encodeURIComponent(`from:f1visualized "#${hashtag}" ${race.season}`) }`,
+      url: `https://nitter.net/search?f=tweets&q=${encodeURIComponent(`from:f1visualized "#${hashtag}" ${race.season}`)}`,
       description: 'Session visualizations',
     },
     {
       label: '@the_lollipopman',
-      url: `https://nitter.net/search?f=tweets&q=${encodeURIComponent(`from:the_lollipopman "#${hashtag}" ${race.season}`) }`,
+      url: `https://nitter.net/search?f=tweets&q=${encodeURIComponent(`from:the_lollipopman "#${hashtag}" ${race.season}`)}`,
       description: 'Fun takes',
+    },
+    {
+      label: 'Official Highlights',
+      url: `https://www.youtube.com/results?search_query=${ytQuery}`,
+      description: 'Official F1 YouTube',
     },
   ];
 }
