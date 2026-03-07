@@ -32,10 +32,6 @@ export const css = `
   h2 { font-size: 1.1rem; font-weight: 600; margin: 32px 0 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
   h3 { font-size: 0.95rem; font-weight: 600; margin: 0 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 
-  .breadcrumb { font-size: 0.8rem; color: var(--muted); margin-bottom: 20px; }
-  .breadcrumb a { color: var(--muted); }
-  .breadcrumb a:hover { color: var(--text); }
-
   table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
   th {
     text-align: left;
@@ -219,12 +215,18 @@ export const css = `
   /* ---- Nav ---- */
   .site-nav {
     display: flex;
-    gap: 20px;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 28px;
-    font-size: 0.8rem;
-    border-bottom: 1px solid var(--border);
     padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.8rem;
+    gap: 12px;
   }
+  .site-nav-left { display: flex; gap: 20px; flex-shrink: 0; }
+  .site-nav-right { color: var(--muted); text-align: right; }
+  .site-nav-right a { color: var(--muted); }
+  .site-nav-right a:hover { color: var(--text); text-decoration: none; }
   .site-nav a { color: var(--muted); }
   .site-nav a:hover { color: var(--text); text-decoration: none; }
   .site-nav a.active { color: var(--accent); font-weight: 600; }

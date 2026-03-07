@@ -22,12 +22,6 @@ export function renderRaceDetail(
   const hasotherRaces = otherSeasons.length > 0;
 
   const body = `
-    <div class="breadcrumb">
-      <a href="/">Home</a> /
-      <a href="/${race.season}">${race.season}</a> /
-      Round ${race.round}
-    </div>
-
     <div class="race-header">
       <div class="round-badge">ROUND ${race.round} &middot; ${race.season}</div>
       <h1>${race.name}</h1>
@@ -66,7 +60,7 @@ export function renderRaceDetail(
       }
     </script>`;
 
-  return layout(`${race.name} ${race.season}`, body);
+  return layout(`${race.name} ${race.season}`, body, '', `<a href="/${race.season}">${race.season}</a> / Round ${race.round}`);
 }
 
 // ---- Qualifying Results section ----

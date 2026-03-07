@@ -11,13 +11,6 @@ export function renderConstructorPage(
   const title = `${constructorName} - ${season} Constructor Profile`;
   
   const body = `
-    <div class="breadcrumb">
-      <a href="/">Home</a> /
-      <a href="/${season}">${season}</a> /
-      Constructors /
-      ${escHtml(constructorName)}
-    </div>
-
     <div class="driver-header">
       <h1>${escHtml(constructorName)}</h1>
       <div class="meta">
@@ -40,7 +33,7 @@ export function renderConstructorPage(
     </div>
   `;
 
-  return layout(title, body);
+  return layout(title, body, '', `<a href="/${season}">${season}</a> / Constructors / ${escHtml(constructorName)}`);
 }
 
 function renderSeasonTable(results: (RaceEntry & { race: Race })[], season: number): string {

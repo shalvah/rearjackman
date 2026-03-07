@@ -3,13 +3,16 @@ import { collapseToggleScript } from './client';
 
 // ---- Shared page shell ----
 
-export function layout(title: string, body: string, activePath = ''): string {
+export function layout(title: string, body: string, activePath = '', breadcrumb = ''): string {
   const navLink = (href: string, label: string) =>
     `<a href="${href}"${activePath === href ? ' class="active"' : ''}>${label}</a>`;
 
   const nav = `<nav class="site-nav">
-  ${navLink('/', 'Home')}
-  ${navLink('/news', 'News')}
+  <div class="site-nav-left">
+    ${navLink('/', 'Home')}
+    ${navLink('/news', 'News')}
+  </div>
+  ${breadcrumb ? `<div class="site-nav-right">${breadcrumb}</div>` : ''}
 </nav>`;
 
   return `<!DOCTYPE html>

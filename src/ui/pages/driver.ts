@@ -11,13 +11,6 @@ export function renderDriverPage(
   const title = `${driverName} - ${season} Driver Profile`;
   
   const body = `
-    <div class="breadcrumb">
-      <a href="/">Home</a> /
-      <a href="/${season}">${season}</a> /
-      Drivers /
-      ${escHtml(driverName)}
-    </div>
-
     <div class="driver-header">
       <h1>${escHtml(driverName)}</h1>
       <div class="meta">
@@ -40,7 +33,7 @@ export function renderDriverPage(
     </div>
   `;
 
-  return layout(title, body);
+  return layout(title, body, '', `<a href="/${season}">${season}</a> / Drivers / ${escHtml(driverName)}`);
 }
 
 function renderSeasonTable(results: (RaceEntry & { race: Race })[]): string {

@@ -19,11 +19,10 @@ export function renderSeasonList(season: number, races: Race[]): string {
     .join('\n');
 
   const body = `
-    <div class="breadcrumb"><a href="/">Home</a> / ${season}</div>
     <h1>${season} Season</h1>
     <ul class="season-list" style="margin-top:24px">
       ${rows}
     </ul>`;
 
-  return layout(`${season} Season`, body);
+  return layout(`${season} Season`, body, '', `<a href="/">Home</a> / ${season}`);
 }

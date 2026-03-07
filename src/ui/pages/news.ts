@@ -28,10 +28,6 @@ export function renderNewsPage(feeds: Feed[]): string {
   }).join('\n');
 
   const body = `
-    <div class="breadcrumb">
-      <a href="/">Home</a> / News
-    </div>
-
     <h1>Latest F1 News</h1>
 
     ${sections}`;
