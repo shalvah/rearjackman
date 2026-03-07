@@ -83,6 +83,7 @@ export async function fetchAllFeeds(cache: KVNamespace): Promise<Feed[]> {
 
   // Try KV cache first
   const cached = await cache.get(CACHE_KEY);
+  console.log(`News feed cache: ${cached ? 'HIT' : 'MISS'}`);
   if (cached) {
     try {
       return JSON.parse(cached) as Feed[];
@@ -96,6 +97,7 @@ export async function fetchAllFeeds(cache: KVNamespace): Promise<Feed[]> {
 
   // Store in KV with TTL (fire-and-forget)
   cache.put(CACHE_KEY, JSON.stringify(feeds), { expirationTtl: CACHE_TTL_SECONDS });
+  console.log('News feed cache: UPDATED');
 
   return feeds;
 }
