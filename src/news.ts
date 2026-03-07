@@ -1,4 +1,4 @@
-const CACHE_TTL_SECONDS = 15 * 60; // 15 minutes
+const CACHE_TTL_SECONDS = 60 * 60; // 1 hour
 
 export interface FeedItem {
   title: string;
