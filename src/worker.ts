@@ -126,14 +126,14 @@ export default {
 // ---- Route handlers ----
 
 async function handleHome(env: Env): Promise<Response> {
-  // Fetch the latest season's races to determine the current/next race for the OG title
+  // Fetch the latest season's races to determine the current/next race for the OG description
   const races = await env.DB.prepare(
     'SELECT name, date FROM races WHERE season = ? ORDER BY round ASC'
   )
     .bind(LATEST_SEASON)
     .all<{ name: string; date: string }>();
 
-  let ogTitle = 'The F1 season tracker for busy people';
+  let ogDescription = '';
 
   if (races.results.length > 0) {
     const today = new Date().toISOString().slice(0, 10);
@@ -148,17 +148,17 @@ async function handleHome(env: Env): Promise<Response> {
     });
 
     if (ongoingRace) {
-      ogTitle = `Ongoing: ${ongoingRace.name}`;
+      ogDescription = `Ongoing: ${ongoingRace.name}`;
     } else {
       // Find the next upcoming race (first race with date > today)
       const nextRace = races.results.find((r) => r.date > today);
       if (nextRace) {
-        ogTitle = `Up Next: ${nextRace.name}`;
+        ogDescription = `Up Next: ${nextRace.name}`;
       }
     }
   }
 
-  return htmlResponse(renderHome(KNOWN_SEASONS, LATEST_SEASON, ogTitle));
+  return htmlResponse(renderHome(KNOWN_SEASONS, LATEST_SEASON, ogDescription));
 }
 
 async function handleSync(request: Request, env: Env, ctx: ExecutionContext, seasonStr: string): Promise<Response> {
