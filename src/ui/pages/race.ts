@@ -118,6 +118,7 @@ function renderQualiResults(entries: QualiEntry[], season: number): string {
       <td>${q3}${q3Delta}</td>
     </tr>`);
 
+    // On mobile, don't show the delta to avoid clutter.
     cards.push(`<li class="result-card${isHidden ? ' collapsed-card' : ''}">
       <div class="result-card-top">
         <span class="result-card-pos">${e.position}</span>
@@ -126,9 +127,9 @@ function renderQualiResults(entries: QualiEntry[], season: number): string {
       </div>
       <div class="result-card-meta">
         <span>${escHtml(e.constructor)}</span>
-        <span>Q1: ${q1}${q1Delta}</span>
-        ${e.q2 ? `<span>Q2: ${q2}${q2Delta}</span>` : ''}
-        ${e.q3 ? `<span>Q3: ${q3}${q3Delta}</span>` : ''}
+        <span>Q1: ${q1}</span>
+        ${e.q2 ? `<span>Q2: ${q2}</span>` : ''}
+        ${e.q3 ? `<span>Q3: ${q3}</span>` : ''}
       </div>
     </li>`);
   });
