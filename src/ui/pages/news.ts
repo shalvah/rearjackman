@@ -12,8 +12,8 @@ export function renderNewsPage(feeds: Feed[]): string {
     } else {
       const rows = feed.items.map((item, i) => {
         const isHidden = i >= PREVIEW;
-        return `<li class="news-item${isHidden ? ' news-item-hidden' : ''}">
-          <a href="${escHtml(item.link)}" target="_blank" rel="noopener">${escHtml(item.title)}</a>${item.pubDate ? `<span class="news-item-date">${escHtml(item.pubDate)}</span>` : ''}
+        return `<li class="${isHidden ? ' collapsed-row' : ''}">
+          <a href="${escHtml(item.link)}" target="_blank" rel="noopener">${escHtml(item.title)}</a>${item.pubDate ? `<div><small class="news-item-date">${escHtml(item.pubDate)}</small></div>` : ''}
         </li>`;
       }).join('\n');
 

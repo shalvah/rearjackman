@@ -189,25 +189,8 @@ export const css = `
     list-style: none;
     margin: 0;
   }
-  .news-item {
-    border-bottom: 1px solid var(--border);
-    padding: 9px 0;
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .news-item:last-of-type { border-bottom: none; }
-  .news-item a {
-    color: var(--text);
-    font-size: 0.88rem;
-    flex: 1;
-    min-width: 0;
-  }
-  .news-item a:hover { color: var(--accent); text-decoration: none; }
   .news-item-date {
     color: var(--muted);
-    font-size: 0.78rem;
     white-space: nowrap;
   }
   .news-item-hidden { display: none; }
