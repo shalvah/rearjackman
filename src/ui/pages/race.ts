@@ -352,13 +352,18 @@ function buildExternalLinks(race: Race): ExternalLink[] {
   return [
     {
       label: '@f1visualized',
-      url: `https://nitter.net/search?f=tweets&q=${encodeURIComponent(`from:f1visualized "#${hashtag}" ${race.season}`)}`,
+      url: `https://nitter.net/search?f=tweets&q=${encodeURIComponent(`from:f1visualized "#${hashtag}" since:${race.season}-01-01`)}`,
       description: 'Session visualizations',
     },
     {
       label: '@the_lollipopman',
-      url: `https://nitter.net/search?f=tweets&q=${encodeURIComponent(`from:the_lollipopman "#${hashtag}" ${race.season}`)}`,
+      url: `https://nitter.net/search?f=tweets&q=${encodeURIComponent(`from:the_lollipopman "#${hashtag}" since:${race.season}-01-01`)}`,
       description: 'Fun takes',
+    },
+    {
+      label: '@FDataAnalysis',
+      url: `https://nitter.net/search?f=tweets&q=${encodeURIComponent(`from:FDataAnalysis "#${hashtag}" since:${race.season}-01-01`)}`,
+      description: 'Session visualizations',
     },
     {
       label: 'Official Highlights',
