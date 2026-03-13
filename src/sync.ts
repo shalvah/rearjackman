@@ -273,11 +273,11 @@ export async function syncSeason(season: number, db: D1Database, fromRound = 1, 
     // Upsert the race row regardless of completion
     const raceId = await upsertRace(db, season, race);
 
-    // Determine if the race is upcoming, imminent (within 30 hours), or past
+    // Determine if the race is upcoming, imminent (within 3 days), or past
     const raceDateTime = race.time ? new Date(`${race.date}T${race.time}`) : new Date(`${race.date}T00:00:00Z`);
     const msUntilRace = raceDateTime.getTime() - Date.now();
-    const isUpcoming = raceDateTime.getTime() > (new Date(today).getTime() + 3 * 24 * 60 * 60 * 1000);
-    const isImminent = isUpcoming && msUntilRace <= 30 * 60 * 60 * 1000;
+    const isUpcoming = raceDate > today;
+    const isImminent = isUpcoming && msUntilRace <= 3 * 24 * 60 * 60 * 1000;
 
     if (isUpcoming && !isImminent) {
       log.push(`${raceLabel} — upcoming, skipping results.`);
