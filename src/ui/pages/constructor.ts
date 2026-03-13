@@ -1,5 +1,5 @@
 import type { Race, RaceEntry } from '../../types';
-import { layout, escHtml, posDeltaHtml } from '../layout';
+import { layout, escHtml, posDeltaHtml } from '../helpers';
 
 export function renderConstructorPage(
   constructorId: string,

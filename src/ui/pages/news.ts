@@ -1,5 +1,5 @@
 import type { Feed } from '../news';
-import { layout, escHtml, showMoreBtn } from '../layout';
+import { layout, escHtml, showMoreBtn } from '../helpers';
 
 const PREVIEW = 3;
 

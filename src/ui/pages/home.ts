@@ -1,4 +1,4 @@
-import { layout } from '../layout';
+import { layout } from '../helpers';
 
 export function renderHome(seasons: number[], latestSeason: number, seasonRaces: { name: string, date: string, round: number }[]): string {
   let latestRaceText = '';

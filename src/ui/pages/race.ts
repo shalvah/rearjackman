@@ -1,6 +1,6 @@
 import type { Race, RaceEntry, QualiEntry, SprintEntry, SprintQualiEntry, StandingsSnapshot } from '../../types';
 
-import { layout, escHtml, posDeltaHtml, showMoreBtn, formatDate } from '../layout';
+import { layout, escHtml, posDeltaHtml, showMoreBtn, formatDate } from '../helpers';
 
 const PREVIEW = 5;
 

@@ -1,5 +1,5 @@
 import type { Race } from '../../types';
-import { layout, formatDate } from '../layout';
+import { layout, formatDate } from '../helpers';
 
 export function renderSeasonList(season: number, races: Race[]): string {
   const today = new Date().toISOString().slice(0, 10);
