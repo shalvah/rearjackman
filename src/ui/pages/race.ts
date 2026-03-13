@@ -533,6 +533,11 @@ function buildExternalLinks(race: Race): ExternalLink[] {
       url: `https://www.youtube.com/results?search_query=${ytQuery}`,
       description: 'Official F1 YouTube',
     },
+    {
+      label: 'Official Twitter',
+      url: `https://twitter.com/search?q=${encodeURIComponent(`from:F1 "#${hashtag}" since:${race.season}-01-01`)}&f=live`,
+      description: 'Official F1 Twitter',
+    },
   ];
 }
 
