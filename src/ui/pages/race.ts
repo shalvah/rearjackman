@@ -1,4 +1,4 @@
-import type { Race, RaceEntry, QualiEntry, StandingsSnapshot } from '../../types';
+import type { Race, RaceEntry, QualiEntry, SprintEntry, SprintQualiEntry, StandingsSnapshot } from '../../types';
 
 import { layout, escHtml, posDeltaHtml, showMoreBtn, formatDate } from '../layout';
 
@@ -10,6 +10,8 @@ export function renderRaceDetail(
   race: Race,
   entries: RaceEntry[],
   qualiEntries: QualiEntry[],
+  sprintEntries: SprintEntry[],
+  sprintQualiEntries: SprintQualiEntry[],
   driversBefore: StandingsSnapshot[],
   constructorsBefore: StandingsSnapshot[],
   driversAfter: StandingsSnapshot[],
@@ -18,6 +20,8 @@ export function renderRaceDetail(
 ): string {
   const hasResults = entries.length > 0;
   const hasQuali = qualiEntries.length > 0;
+  const hasSprintResults = sprintEntries.length > 0;
+  const hasSprintQuali = sprintQualiEntries.length > 0;
   const hasStandings = driversAfter.length > 0;
   const hasotherRaces = otherSeasons.length > 0;
 
@@ -34,6 +38,13 @@ export function renderRaceDetail(
       </div>
       ${renderExternalLinks(race)}
     </div>
+
+    ${hasSprintResults
+      ? renderSprintResults(sprintEntries, race.season)
+      : hasSprintQuali
+        ? renderSprintQualiResults(sprintQualiEntries, race.season)
+        : ''
+    }
 
     ${hasResults
       ? renderGridResults(entries, race.season, constructorsAfter)
@@ -247,6 +258,158 @@ function renderGridResults(entries: RaceEntry[], season: number, constructorStan
       </div>
       <ul class="results-cards">${cards.join('\n')}</ul>
       ${showMoreBtn(sorted.length, PREVIEW)}
+    </div>`;
+}
+
+// ---- Sprint Results section ----
+
+function renderSprintResults(entries: SprintEntry[], season: number): string {
+  // Sort: finishers by finish_position, then DNFs by grid_position
+  const sorted = [...entries].sort((a, b) => {
+    if (a.finish_position !== null && b.finish_position !== null) {
+      return a.finish_position - b.finish_position;
+    }
+    if (a.finish_position !== null) return -1;
+    if (b.finish_position !== null) return 1;
+    return (a.grid_position ?? 99) - (b.grid_position ?? 99);
+  });
+
+  const tableRows: string[] = [];
+  const cards: string[] = [];
+
+  sorted.forEach((e, i) => {
+    const isHidden = i >= PREVIEW;
+    const isDnf = e.finish_position === null;
+    const gridPos = e.grid_position ?? '—';
+    const finishPos = e.finish_position ?? '—';
+    const gridNum = typeof gridPos === 'number' ? gridPos : null;
+    const finishNum = typeof finishPos === 'number' ? finishPos : null;
+
+    const posDelta = gridNum !== null && finishNum !== null
+      ? posDeltaHtml(gridNum - finishNum)
+      : '';
+
+    const pts = e.points > 0 ? e.points : '—';
+    const driverLink = `<a href="/driver/${e.jolpica_driver_id}?season=${season}">${e.driver_name}</a>`;
+    const driverDisplay = `${e.driver_code ? `<strong>${e.driver_code}</strong> ` : ''}${driverLink}`;
+
+    const statusDisplay = isDnf
+      ? `<span class="tag tag-dnf">${escHtml(e.status)}</span>`
+      : escHtml(e.status);
+
+    tableRows.push(`<tr${isHidden ? ' class="collapsed-row"' : ''}>
+      <td>${finishPos}${posDelta}</td>
+      <td>${driverDisplay}</td>
+      <td>${escHtml(e.constructor)}</td>
+      <td>${gridPos}</td>
+      <td>${statusDisplay}</td>
+      <td style="text-align:right">${pts}</td>
+    </tr>`);
+
+    cards.push(`<li class="result-card${isHidden ? ' collapsed-card' : ''}">
+      <div class="result-card-top">
+        <span class="result-card-pos">${finishPos}${posDelta}</span>
+        <span class="result-card-driver">${driverDisplay}</span>
+        <span class="result-card-pts"><strong>${pts}</strong> pts</span>
+      </div>
+      <div class="result-card-meta">
+        <span>${escHtml(e.constructor)}</span>
+        <span>Grid: ${gridPos}</span>
+        <span>${statusDisplay}</span>
+      </div>
+    </li>`);
+  });
+
+  return `
+    <h2>Sprint</h2>
+    <div class="collapsible-section" data-expanded="false">
+      <div class="results-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Finish</th>
+              <th>Driver</th>
+              <th>Constructor</th>
+              <th>Grid</th>
+              <th>Status</th>
+              <th style="text-align:right">Pts</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows.join('\n')}</tbody>
+        </table>
+      </div>
+      <ul class="results-cards">${cards.join('\n')}</ul>
+      ${showMoreBtn(sorted.length, PREVIEW)}
+    </div>`;
+}
+
+// ---- Sprint Qualifying Results section ----
+
+function renderSprintQualiResults(entries: SprintQualiEntry[], season: number): string {
+  const tableRows: string[] = [];
+  const cards: string[] = [];
+
+  entries.forEach((e, i) => {
+    const isHidden = i >= PREVIEW;
+    const driverLink = `<a href="/driver/${e.jolpica_driver_id}?season=${season}">${e.driver_name}</a>`;
+    const driverDisplay = `${e.driver_code ? `<strong>${e.driver_code}</strong> ` : ''}${driverLink}`;
+
+    const sq1 = e.sq1 ?? '—';
+    const sq2 = e.sq2 ?? '—';
+    const sq3 = e.sq3 ?? '—';
+
+    const prev = i > 0 ? entries[i - 1] : null;
+    const calcDelta = (cur: string | null, prevTime: string | null): string => {
+      const a = parseLapTimeMs(cur), b = parseLapTimeMs(prevTime);
+      return fmtDelta(a !== null && b !== null ? a - b : null);
+    };
+    const sq1Delta = calcDelta(e.sq1, prev?.sq1 ?? null);
+    const sq2Delta = calcDelta(e.sq2, prev?.sq2 ?? null);
+    const sq3Delta = calcDelta(e.sq3, prev?.sq3 ?? null);
+
+    tableRows.push(`<tr${isHidden ? ' class="collapsed-row"' : ''}>
+      <td>${e.position}</td>
+      <td>${driverDisplay}</td>
+      <td>${escHtml(e.constructor)}</td>
+      <td>${sq1}${sq1Delta}</td>
+      <td>${sq2}${sq2Delta}</td>
+      <td>${sq3}${sq3Delta}</td>
+    </tr>`);
+
+    cards.push(`<li class="result-card${isHidden ? ' collapsed-card' : ''}">
+      <div class="result-card-top">
+        <span class="result-card-pos">${e.position}</span>
+        <span class="result-card-driver">${driverDisplay}</span>
+        <span class="result-card-pts">${sq3 !== '—' ? sq3 + sq3Delta : sq2 !== '—' ? sq2 + sq2Delta : sq1 + sq1Delta}</span>
+      </div>
+      <div class="result-card-meta">
+        <span>${escHtml(e.constructor)}</span>
+        <span>SQ1: ${sq1}</span>
+        ${e.sq2 ? `<span>SQ2: ${sq2}</span>` : ''}
+      </div>
+    </li>`);
+  });
+
+  return `
+    <h2>Sprint Qualifying</h2>
+    <div class="collapsible-section" data-expanded="false">
+      <div class="results-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Pos</th>
+              <th>Driver</th>
+              <th>Constructor</th>
+              <th>SQ1</th>
+              <th>SQ2</th>
+              <th>SQ3</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows.join('\n')}</tbody>
+        </table>
+      </div>
+      <ul class="results-cards">${cards.join('\n')}</ul>
+      ${showMoreBtn(entries.length, PREVIEW)}
     </div>`;
 }
 

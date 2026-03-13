@@ -3,6 +3,7 @@ import type {
   JolpicaRace,
   JolpicaResult,
   JolpicaQualifyingResult,
+  JolpicaSprintQualifyingResult,
   JolpicaDriverStanding,
   JolpicaConstructorStanding,
 } from './types';
@@ -78,6 +79,24 @@ async function fetchQualifying(season: number, round: number): Promise<JolpicaQu
   return races[0]?.QualifyingResults ?? [];
 }
 
+// Fetch sprint race results for a specific round
+async function fetchSprintResults(season: number, round: number): Promise<JolpicaResult[]> {
+  const data = await jolpicaFetch<JolpicaRace>(`/${season}/${round}/sprint`);
+  const races = data.MRData.RaceTable?.Races ?? [];
+  return races[0]?.SprintResults ?? [];
+}
+
+// Fetch sprint qualifying results for a specific round.
+// Jolpica serves sprint qualifying via the /qualifying endpoint on sprint weekends;
+// they use Q1/Q2/Q3 field names even for SQ1/SQ2/SQ3 times.
+async function fetchSprintQualifying(season: number, round: number): Promise<JolpicaSprintQualifyingResult[]> {
+  const data = await jolpicaFetch<JolpicaRace>(`/${season}/${round}/qualifying`);
+  const races = data.MRData.RaceTable?.Races ?? [];
+  const raw = races[0]?.QualifyingResults ?? [];
+  // Cast: JolpicaQualifyingResult and JolpicaSprintQualifyingResult have identical shapes
+  return raw as unknown as JolpicaSprintQualifyingResult[];
+}
+
 // Fetch driver standings after a specific round (round=0 = pre-season / empty)
 async function fetchDriverStandings(season: number, round: number): Promise<JolpicaDriverStanding[]> {
   if (round === 0) return [];
@@ -98,8 +117,8 @@ async function fetchConstructorStandings(season: number, round: number): Promise
 async function upsertRace(db: D1Database, season: number, race: JolpicaRace): Promise<number> {
   const result = await db
     .prepare(
-      `INSERT INTO races (season, round, name, circuit_name, circuit_id, locality, country, date, time, wikipedia_url)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO races (season, round, name, circuit_name, circuit_id, locality, country, date, time, wikipedia_url, sprint_date, sprint_time)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(season, round) DO UPDATE SET
          name = excluded.name,
          circuit_name = excluded.circuit_name,
@@ -108,7 +127,9 @@ async function upsertRace(db: D1Database, season: number, race: JolpicaRace): Pr
          country = excluded.country,
          date = excluded.date,
          time = excluded.time,
-         wikipedia_url = excluded.wikipedia_url
+         wikipedia_url = excluded.wikipedia_url,
+         sprint_date = excluded.sprint_date,
+         sprint_time = excluded.sprint_time
        RETURNING id`
     )
     .bind(
@@ -121,7 +142,9 @@ async function upsertRace(db: D1Database, season: number, race: JolpicaRace): Pr
       race.Circuit.Location.country,
       race.date,
       race.time ?? null,
-      race.url
+      race.url,
+      race.Sprint?.date ?? null,
+      race.Sprint?.time ?? null
     )
     .first<{ id: number }>();
 
@@ -174,6 +197,70 @@ async function upsertQualifyingEntries(db: D1Database, raceId: number, results: 
       .prepare(
         `INSERT INTO qualifying_entries
            (race_id, jolpica_driver_id, driver_code, driver_name, constructor, position, q1, q2, q3)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        raceId,
+        r.Driver.driverId,
+        r.Driver.code ?? '',
+        `${r.Driver.givenName} ${r.Driver.familyName}`,
+        r.Constructor.name,
+        parseInt(r.position),
+        r.Q1 ?? null,
+        r.Q2 ?? null,
+        r.Q3 ?? null
+      )
+  );
+
+  if (stmts.length > 0) {
+    await db.batch(stmts);
+  }
+}
+
+// Replace all sprint race entries for a race
+async function upsertSprintEntries(db: D1Database, raceId: number, results: JolpicaResult[]): Promise<void> {
+  await db.prepare('DELETE FROM sprint_entries WHERE race_id = ?').bind(raceId).run();
+
+  const stmts = results.map((r) => {
+    const isFastestLap = r.FastestLap?.rank === '1' ? 1 : 0;
+    const finishPos = r.positionText === 'R' || r.positionText === 'D' || r.positionText === 'E' || r.positionText === 'W' || r.positionText === 'F' || r.positionText === 'N'
+      ? null
+      : parseInt(r.position);
+
+    return db
+      .prepare(
+        `INSERT INTO sprint_entries
+           (race_id, jolpica_driver_id, driver_code, driver_name, constructor, grid_position, finish_position, status, points, fastest_lap)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        raceId,
+        r.Driver.driverId,
+        r.Driver.code ?? '',
+        `${r.Driver.givenName} ${r.Driver.familyName}`,
+        r.Constructor.name,
+        r.grid === '0' ? null : parseInt(r.grid),
+        finishPos,
+        r.status,
+        parseFloat(r.points),
+        isFastestLap
+      );
+  });
+
+  if (stmts.length > 0) {
+    await db.batch(stmts);
+  }
+}
+
+// Replace all sprint qualifying entries for a race
+async function upsertSprintQualifyingEntries(db: D1Database, raceId: number, results: JolpicaSprintQualifyingResult[]): Promise<void> {
+  await db.prepare('DELETE FROM sprint_qualifying_entries WHERE race_id = ?').bind(raceId).run();
+
+  const stmts = results.map((r) =>
+    db
+      .prepare(
+        `INSERT INTO sprint_qualifying_entries
+           (race_id, jolpica_driver_id, driver_code, driver_name, constructor, position, sq1, sq2, sq3)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
@@ -298,7 +385,7 @@ export async function syncSeason(season: number, db: D1Database, fromRound = 1, 
     // Determine if the race is upcoming, imminent (within 30 hours), or past
     const raceDateTime = race.time ? new Date(`${race.date}T${race.time}`) : new Date(`${race.date}T00:00:00Z`);
     const msUntilRace = raceDateTime.getTime() - Date.now();
-    const isUpcoming = raceDate > today;
+    const isUpcoming = raceDateTime.getTime() > (new Date(today).getTime() + 3 * 24 * 60 * 60 * 1000);
     const isImminent = isUpcoming && msUntilRace <= 30 * 60 * 60 * 1000;
 
     if (isUpcoming && !isImminent) {
@@ -318,6 +405,19 @@ export async function syncSeason(season: number, db: D1Database, fromRound = 1, 
       } else {
         log.push(`  No qualifying results yet.`);
       }
+
+      // If it's a sprint weekend, also try to fetch sprint qualifying results
+      if (race.Sprint) {
+        await sleep(DELAY_MS);
+        const sprintQualiResults = await fetchSprintQualifying(season, round);
+        if (sprintQualiResults.length > 0) {
+          await upsertSprintQualifyingEntries(db, raceId, sprintQualiResults);
+          log.push(`  Stored ${sprintQualiResults.length} sprint qualifying entries.`);
+        } else {
+          log.push(`  No sprint qualifying results yet.`);
+        }
+      }
+
       racesSkipped++;
       await sleep(DELAY_MS);
       continue;
@@ -337,12 +437,47 @@ export async function syncSeason(season: number, db: D1Database, fromRound = 1, 
       } else {
         log.push(`  No qualifying results yet either, skipping.`);
       }
+
+      // If sprint weekend, also fetch sprint results and sprint qualifying
+      if (race.Sprint) {
+        await sleep(DELAY_MS);
+        const sprintResults = await fetchSprintResults(season, round);
+        if (sprintResults.length > 0) {
+          await upsertSprintEntries(db, raceId, sprintResults);
+          log.push(`  Stored ${sprintResults.length} sprint entries.`);
+        }
+        await sleep(DELAY_MS);
+        const sprintQualiResults = await fetchSprintQualifying(season, round);
+        if (sprintQualiResults.length > 0) {
+          await upsertSprintQualifyingEntries(db, raceId, sprintQualiResults);
+          log.push(`  Stored ${sprintQualiResults.length} sprint qualifying entries.`);
+        }
+      }
+
       racesSkipped++;
       continue;
     }
 
     await upsertRaceEntries(db, raceId, results);
     log.push(`  Stored ${results.length} entries.`);
+
+    // If sprint weekend, also fetch and store sprint results and sprint qualifying
+    if (race.Sprint) {
+      await sleep(DELAY_MS);
+      const sprintResults = await fetchSprintResults(season, round);
+      if (sprintResults.length > 0) {
+        await upsertSprintEntries(db, raceId, sprintResults);
+        log.push(`  Stored ${sprintResults.length} sprint entries.`);
+      } else {
+        log.push(`  No sprint results available.`);
+      }
+      await sleep(DELAY_MS);
+      const sprintQualiResults = await fetchSprintQualifying(season, round);
+      if (sprintQualiResults.length > 0) {
+        await upsertSprintQualifyingEntries(db, raceId, sprintQualiResults);
+        log.push(`  Stored ${sprintQualiResults.length} sprint qualifying entries.`);
+      }
+    }
 
     // "before" standings: use cached "after" from previous round if available,
     // otherwise fetch from API (covers the case where sync is resumed mid-season)

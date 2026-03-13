@@ -21,9 +21,25 @@ export interface Race {
   date: string;       // "YYYY-MM-DD"
   time: string | null; // "HH:MM:SSZ" UTC, or null
   wikipedia_url: string | null;
+  sprint_date: string | null;  // null if not a sprint weekend
+  sprint_time: string | null;
 }
 
 export interface RaceEntry {
+  id: number;
+  race_id: number;
+  jolpica_driver_id: string;
+  driver_code: string;
+  driver_name: string;
+  constructor: string;
+  grid_position: number | null;
+  finish_position: number | null;
+  status: string;
+  points: number;
+  fastest_lap: number; // 0 | 1
+}
+
+export interface SprintEntry {
   id: number;
   race_id: number;
   jolpica_driver_id: string;
@@ -48,6 +64,19 @@ export interface QualiEntry {
   q1: string | null;
   q2: string | null;
   q3: string | null;
+}
+
+export interface SprintQualiEntry {
+  id: number;
+  race_id: number;
+  jolpica_driver_id: string;
+  driver_code: string;
+  driver_name: string;
+  constructor: string;
+  position: number;
+  sq1: string | null;
+  sq2: string | null;
+  sq3: string | null;
 }
 
 export interface StandingsSnapshot {
@@ -87,8 +116,11 @@ export interface JolpicaRace {
   date: string;
   time?: string;
   url: string;
+  Sprint?: { date: string; time?: string };  // present on sprint weekends
   Results?: JolpicaResult[];
   QualifyingResults?: JolpicaQualifyingResult[];
+  SprintResults?: JolpicaResult[];            // same shape as Results
+  SprintQualifyingResults?: JolpicaSprintQualifyingResult[];
 }
 
 export interface JolpicaResult {
@@ -130,6 +162,25 @@ export interface JolpicaQualifyingResult {
     name: string;
   };
   Q1?: string;
+  Q2?: string;
+  Q3?: string;
+}
+
+// Sprint qualifying (Sprint Shootout) results — same shape as qualifying but with SQ1/SQ2/SQ3
+export interface JolpicaSprintQualifyingResult {
+  number: string;
+  position: string;
+  Driver: {
+    driverId: string;
+    code: string;
+    givenName: string;
+    familyName: string;
+  };
+  Constructor: {
+    constructorId: string;
+    name: string;
+  };
+  Q1?: string;  // Jolpica uses Q1/Q2/Q3 naming even for sprint qualifying
   Q2?: string;
   Q3?: string;
 }
