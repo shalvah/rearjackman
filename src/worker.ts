@@ -3,7 +3,7 @@ import type { Env, Race, RaceEntry, QualiEntry, SprintEntry, SprintQualiEntry, S
 import { syncSeason } from './sync';
 import type { JolpicaRace } from './types';
 import { fetchSchedule } from './sync';
-import { fetchAllFeeds } from './news';
+import { fetchAllFeeds } from './ui/news';
 import { renderHome, renderSeasonList, renderRaceDetail, renderDriverPage, renderConstructorPage, renderNewsPage } from './ui/render';
 
 const CURRENT_YEAR = 2026; // Hardcoded because `new Date()` returns 1970 in Cloudflare Workers' global scope.

@@ -1,4 +1,4 @@
-import type { Feed } from '../../news';
+import type { Feed } from '../news';
 import { layout, escHtml, showMoreBtn } from '../layout';
 
 const PREVIEW = 3;
