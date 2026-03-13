@@ -1,117 +1,8 @@
-import type {
-  JolpicaResponse,
-  JolpicaRace,
-  JolpicaResult,
-  JolpicaQualifyingResult,
-  JolpicaSprintQualifyingResult,
-  JolpicaDriverStanding,
-  JolpicaConstructorStanding,
-} from './types';
-
-const JOLPICA_BASE = 'https://api.jolpi.ca/ergast/f1';
+import { fetchConstructorStandings, fetchDriverStandings, fetchQualifying, fetchResults, fetchSchedule, fetchSprintQualifying, fetchSprintResults } from "./lib/jolpica";
+import { JolpicaRace, JolpicaResult, JolpicaQualifyingResult, JolpicaSprintQualifyingResult, JolpicaDriverStanding, JolpicaConstructorStanding } from "./types";
+import { setTimeout } from 'node:timers/promises';
 
 const DELAY_MS = 2000;
-const MAX_RETRIES = 5;
-
-// TODO replace with node:timers/promises. See https://developers.cloudflare.com/workers/runtime-apis/nodejs/timers/
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function parseRetryAfterMs(header: string | null, fallbackMs: number): number {
-  if (!header) return fallbackMs;
-  // Try as a number of seconds first
-  const seconds = parseFloat(header);
-  if (!isNaN(seconds)) return Math.ceil(seconds) * 1000;
-  // Try as an HTTP date string (e.g. "Fri, 01 Mar 2026 12:00:00 GMT")
-  const date = new Date(header);
-  if (!isNaN(date.getTime())) return Math.max(0, date.getTime() - Date.now());
-  return fallbackMs;
-}
-
-async function jolpicaFetch<T>(path: string): Promise<JolpicaResponse<T>> {
-  const url = `${JOLPICA_BASE}${path}?limit=100`;
-
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    console.log(`[sync] GET ${path}${attempt > 0 ? ` (attempt ${attempt + 1})` : ''}`);
-    const res = await fetch(url);
-
-    if (res.status === 429) {
-      const retryAfter = res.headers.get('Retry-After');
-      const fallbackMs = 5000 * Math.pow(2, attempt); // 5s, 10s, 20s, 40s, 80s
-      const waitMs = parseRetryAfterMs(retryAfter, fallbackMs);
-      if (attempt < MAX_RETRIES) {
-        console.warn(`[sync] 429 rate limited on ${path} — backing off ${waitMs}ms (attempt ${attempt + 1}/${MAX_RETRIES})${retryAfter ? ` [Retry-After: ${retryAfter}]` : ''}`);
-        await sleep(waitMs);
-        continue;
-      }
-      console.error(`[sync] 429 rate limited on ${path} — max retries reached`);
-    }
-
-    if (!res.ok) {
-      console.error(`[sync] HTTP ${res.status} on ${path}`);
-      throw new Error(`Jolpica fetch failed: ${res.status} ${url}`);
-    }
-
-    return res.json() as Promise<JolpicaResponse<T>>;
-  }
-
-  throw new Error(`Jolpica fetch failed after ${MAX_RETRIES} retries: ${url}`);
-}
-
-// Fetch the schedule (all races) for a season
-export async function fetchSchedule(season: number): Promise<JolpicaRace[]> {
-  const data = await jolpicaFetch<JolpicaRace>(`/${season}`);
-  return data.MRData.RaceTable?.Races ?? [];
-}
-
-// Fetch race results for a specific round (includes grid positions)
-async function fetchResults(season: number, round: number): Promise<JolpicaResult[]> {
-  const data = await jolpicaFetch<JolpicaRace>(`/${season}/${round}/results`);
-  const races = data.MRData.RaceTable?.Races ?? [];
-  return races[0]?.Results ?? [];
-}
-
-// Fetch qualifying results for a specific round
-async function fetchQualifying(season: number, round: number): Promise<JolpicaQualifyingResult[]> {
-  const data = await jolpicaFetch<JolpicaRace>(`/${season}/${round}/qualifying`);
-  const races = data.MRData.RaceTable?.Races ?? [];
-  return races[0]?.QualifyingResults ?? [];
-}
-
-// Fetch sprint race results for a specific round
-async function fetchSprintResults(season: number, round: number): Promise<JolpicaResult[]> {
-  const data = await jolpicaFetch<JolpicaRace>(`/${season}/${round}/sprint`);
-  const races = data.MRData.RaceTable?.Races ?? [];
-  return races[0]?.SprintResults ?? [];
-}
-
-// Fetch sprint qualifying results for a specific round.
-// Jolpica serves sprint qualifying via the /qualifying endpoint on sprint weekends;
-// they use Q1/Q2/Q3 field names even for SQ1/SQ2/SQ3 times.
-async function fetchSprintQualifying(season: number, round: number): Promise<JolpicaSprintQualifyingResult[]> {
-  const data = await jolpicaFetch<JolpicaRace>(`/${season}/${round}/qualifying`);
-  const races = data.MRData.RaceTable?.Races ?? [];
-  const raw = races[0]?.QualifyingResults ?? [];
-  // Cast: JolpicaQualifyingResult and JolpicaSprintQualifyingResult have identical shapes
-  return raw as unknown as JolpicaSprintQualifyingResult[];
-}
-
-// Fetch driver standings after a specific round (round=0 = pre-season / empty)
-async function fetchDriverStandings(season: number, round: number): Promise<JolpicaDriverStanding[]> {
-  if (round === 0) return [];
-  const data = await jolpicaFetch<never>(`/${season}/${round}/driverStandings`);
-  const lists = data.MRData.StandingsTable?.StandingsLists ?? [];
-  return lists[0]?.DriverStandings ?? [];
-}
-
-// Fetch constructor standings after a specific round
-async function fetchConstructorStandings(season: number, round: number): Promise<JolpicaConstructorStanding[]> {
-  if (round === 0) return [];
-  const data = await jolpicaFetch<never>(`/${season}/${round}/constructorStandings`);
-  const lists = data.MRData.StandingsTable?.StandingsLists ?? [];
-  return lists[0]?.ConstructorStandings ?? [];
-}
 
 // Upsert a race row, returning its DB id
 async function upsertRace(db: D1Database, season: number, race: JolpicaRace): Promise<number> {
@@ -391,13 +282,13 @@ export async function syncSeason(season: number, db: D1Database, fromRound = 1, 
     if (isUpcoming && !isImminent) {
       log.push(`${raceLabel} — upcoming, skipping results.`);
       racesSkipped++;
-      await sleep(DELAY_MS);
+      await setTimeout(DELAY_MS);
       continue;
     }
 
     if (isImminent) {
       log.push(`${raceLabel} — imminent (within 30h), fetching qualifying results...`);
-      await sleep(DELAY_MS);
+      await setTimeout(DELAY_MS);
       const qualiResults = await fetchQualifying(season, round);
       if (qualiResults.length > 0) {
         await upsertQualifyingEntries(db, raceId, qualiResults);
@@ -408,7 +299,7 @@ export async function syncSeason(season: number, db: D1Database, fromRound = 1, 
 
       // If it's a sprint weekend, also try to fetch sprint qualifying results
       if (race.Sprint) {
-        await sleep(DELAY_MS);
+        await setTimeout(DELAY_MS);
         const sprintQualiResults = await fetchSprintQualifying(season, round);
         if (sprintQualiResults.length > 0) {
           await upsertSprintQualifyingEntries(db, raceId, sprintQualiResults);
@@ -419,17 +310,17 @@ export async function syncSeason(season: number, db: D1Database, fromRound = 1, 
       }
 
       racesSkipped++;
-      await sleep(DELAY_MS);
+      await setTimeout(DELAY_MS);
       continue;
     }
 
     log.push(`${raceLabel} — fetching results...`);
-    await sleep(DELAY_MS);
+    await setTimeout(DELAY_MS);
     const results = await fetchResults(season, round);
 
     if (results.length === 0) {
       log.push(`  No race results yet, checking for qualifying results...`);
-      await sleep(DELAY_MS);
+      await setTimeout(DELAY_MS);
       const qualiResults = await fetchQualifying(season, round);
       if (qualiResults.length > 0) {
         await upsertQualifyingEntries(db, raceId, qualiResults);
@@ -440,13 +331,13 @@ export async function syncSeason(season: number, db: D1Database, fromRound = 1, 
 
       // If sprint weekend, also fetch sprint results and sprint qualifying
       if (race.Sprint) {
-        await sleep(DELAY_MS);
+        await setTimeout(DELAY_MS);
         const sprintResults = await fetchSprintResults(season, round);
         if (sprintResults.length > 0) {
           await upsertSprintEntries(db, raceId, sprintResults);
           log.push(`  Stored ${sprintResults.length} sprint entries.`);
         }
-        await sleep(DELAY_MS);
+        await setTimeout(DELAY_MS);
         const sprintQualiResults = await fetchSprintQualifying(season, round);
         if (sprintQualiResults.length > 0) {
           await upsertSprintQualifyingEntries(db, raceId, sprintQualiResults);
@@ -463,7 +354,7 @@ export async function syncSeason(season: number, db: D1Database, fromRound = 1, 
 
     // If sprint weekend, also fetch and store sprint results and sprint qualifying
     if (race.Sprint) {
-      await sleep(DELAY_MS);
+      await setTimeout(DELAY_MS);
       const sprintResults = await fetchSprintResults(season, round);
       if (sprintResults.length > 0) {
         await upsertSprintEntries(db, raceId, sprintResults);
@@ -471,7 +362,7 @@ export async function syncSeason(season: number, db: D1Database, fromRound = 1, 
       } else {
         log.push(`  No sprint results available.`);
       }
-      await sleep(DELAY_MS);
+      await setTimeout(DELAY_MS);
       const sprintQualiResults = await fetchSprintQualifying(season, round);
       if (sprintQualiResults.length > 0) {
         await upsertSprintQualifyingEntries(db, raceId, sprintQualiResults);
@@ -490,9 +381,9 @@ export async function syncSeason(season: number, db: D1Database, fromRound = 1, 
       constructorBefore = cachedConstructorStandings;
       log.push(`  Before standings: using cached data from round ${prevRound}.`);
     } else {
-      await sleep(DELAY_MS);
+      await setTimeout(DELAY_MS);
       driverBefore = await fetchDriverStandings(season, prevRound);
-      await sleep(DELAY_MS);
+      await setTimeout(DELAY_MS);
       constructorBefore = await fetchConstructorStandings(season, prevRound);
       log.push(`  Before standings: fetched from API (round ${prevRound}).`);
     }
@@ -505,9 +396,9 @@ export async function syncSeason(season: number, db: D1Database, fromRound = 1, 
     }
 
     // "after" standings: always fetch from API
-    await sleep(DELAY_MS);
+    await setTimeout(DELAY_MS);
     const driverAfter = await fetchDriverStandings(season, round);
-    await sleep(DELAY_MS);
+    await setTimeout(DELAY_MS);
     const constructorAfter = await fetchConstructorStandings(season, round);
 
     if (driverAfter.length > 0 || constructorAfter.length > 0) {

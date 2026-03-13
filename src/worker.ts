@@ -2,7 +2,7 @@ import { FAVICON_SVG } from './assets';
 import type { Env, Race, RaceEntry, QualiEntry, SprintEntry, SprintQualiEntry, StandingsSnapshot } from './types';
 import { syncSeason } from './sync';
 import type { JolpicaRace } from './types';
-import { fetchSchedule } from './sync';
+import { fetchSchedule } from './lib/jolpica';
 import { fetchAllFeeds } from './ui/news';
 import { renderHome, renderSeasonList, renderRaceDetail, renderDriverPage, renderConstructorPage, renderNewsPage } from './ui/render';
 
