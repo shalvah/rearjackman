@@ -1,6 +1,5 @@
 import { syncSeason } from './sync';
-import type { Env, JolpicaRace } from './types';
-import { fetchSchedule } from './lib/jolpica';
+import type { Env, Race } from './types';
 import { route } from './router';
 
 export default {
@@ -9,35 +8,42 @@ export default {
   },
 
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    const now = Date.now();
     const season = new Date().getFullYear();
-    const today = new Date().toISOString().slice(0, 10);
-    console.log(`[cron] Checking schedule for ${season} season`);
+    console.log(`[cron] Fired for ${season} season`);
 
     ctx.waitUntil((async () => {
       try {
-        const races = await fetchSchedule(season);
-        
-        const completedRaces = races.filter((r: JolpicaRace) => r.date <= today);
-        
-        if (completedRaces.length === 0) {
-          console.log(`[cron] No races completed yet for ${season}. Skipping sync.`);
+        // Check D1 for a race whose weekend window overlaps now, before making any API calls.
+        // Window: 3 days before race datetime (Thu practice) through 12 hours after (results settle).
+        const WINDOW_BEFORE_MS = 3 * 24 * 60 * 60 * 1000;
+        const WINDOW_AFTER_MS  = 12 * 60 * 60 * 1000;
+
+        const races = await env.DB.prepare(
+          'SELECT * FROM races WHERE season = ? ORDER BY round ASC'
+        ).bind(season).all<Race>();
+
+        const currentRace = races.results.find((r) => {
+          const raceMs = r.time
+            ? new Date(`${r.date}T${r.time}`).getTime()
+            : new Date(`${r.date}T14:00:00Z`).getTime(); // fallback: assume 14:00 UTC
+          return now >= raceMs - WINDOW_BEFORE_MS && now <= raceMs + WINDOW_AFTER_MS;
+        });
+
+        if (!currentRace) {
+          console.log(`[cron] Not a race weekend, exiting.`);
           return;
         }
 
-        const lastRace = completedRaces[completedRaces.length - 1];
-        const lastRound = parseInt(lastRace.round);
-
-        console.log(`[cron] Last completed race: Round ${lastRound} (${lastRace.raceName}) on ${lastRace.date}`);
-        console.log(`[cron] Queuing sync for ${season} (Round ${lastRound} only)`);
-
-        await env.SYNC_QUEUE.send({ 
-          season, 
-          fromRound: lastRound, 
-          toRound: lastRound 
+        console.log(`[cron] Race weekend: Round ${currentRace.round} (${currentRace.name}). Queuing sync.`);
+        await env.SYNC_QUEUE.send({
+          season,
+          fromRound: currentRace.round,
+          toRound: currentRace.round,
         });
 
       } catch (err) {
-        console.error(`[cron] Failed to schedule sync:`, err);
+        console.error(`[cron] Error:`, err);
       }
     })());
   },
