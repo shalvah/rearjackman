@@ -4,6 +4,8 @@ import { setTimeout } from 'node:timers/promises';
 
 const DELAY_MS = 2000;
 
+// ---- DB upsert helpers ----
+
 // Upsert a race row, returning its DB id
 async function upsertRace(db: D1Database, season: number, race: JolpicaRace): Promise<number> {
   const result = await db
@@ -45,7 +47,6 @@ async function upsertRace(db: D1Database, season: number, race: JolpicaRace): Pr
 
 // Replace all race entries for a race
 async function upsertRaceEntries(db: D1Database, raceId: number, results: JolpicaResult[]): Promise<void> {
-  // Delete existing entries for this race first
   await db.prepare('DELETE FROM race_entries WHERE race_id = ?').bind(raceId).run();
 
   const stmts = results.map((r) => {
@@ -180,7 +181,6 @@ async function upsertStandingsSnapshots(
   driverStandings: JolpicaDriverStanding[],
   constructorStandings: JolpicaConstructorStanding[]
 ): Promise<void> {
-  // Delete existing snapshots for this race + type
   await db
     .prepare('DELETE FROM standings_snapshots WHERE race_id = ? AND snapshot_type = ?')
     .bind(raceId, snapshotType)
@@ -232,6 +232,143 @@ async function upsertStandingsSnapshots(
   }
 }
 
+// ---- Session sync sub-methods ----
+
+// Sync qualifying results. Skips if records already exist in the DB.
+async function syncQualifying(db: D1Database, raceId: number, season: number, round: number, log: string[]): Promise<void> {
+  const existing = await db.prepare('SELECT 1 FROM qualifying_entries WHERE race_id = ? LIMIT 1').bind(raceId).first();
+  if (existing) {
+    log.push(`  Qualifying: already stored, skipping.`);
+    return;
+  }
+
+  await setTimeout(DELAY_MS);
+  const results = await fetchQualifying(season, round);
+  if (results.length > 0) {
+    await upsertQualifyingEntries(db, raceId, results);
+    log.push(`  Qualifying: stored ${results.length} entries.`);
+  } else {
+    log.push(`  Qualifying: no results available yet.`);
+  }
+}
+
+// Sync sprint qualifying results. Skips if records already exist in the DB.
+async function syncSprintQualifying(db: D1Database, raceId: number, season: number, round: number, log: string[]): Promise<void> {
+  const existing = await db.prepare('SELECT 1 FROM sprint_qualifying_entries WHERE race_id = ? LIMIT 1').bind(raceId).first();
+  if (existing) {
+    log.push(`  Sprint qualifying: already stored, skipping.`);
+    return;
+  }
+
+  await setTimeout(DELAY_MS);
+  const results = await fetchSprintQualifying(season, round);
+  if (results.length > 0) {
+    await upsertSprintQualifyingEntries(db, raceId, results);
+    log.push(`  Sprint qualifying: stored ${results.length} entries.`);
+  } else {
+    log.push(`  Sprint qualifying: no results available yet.`);
+  }
+}
+
+// Sync sprint race results. Skips if records already exist in the DB.
+async function syncSprintResults(db: D1Database, raceId: number, season: number, round: number, log: string[]): Promise<void> {
+  const existing = await db.prepare('SELECT 1 FROM sprint_entries WHERE race_id = ? LIMIT 1').bind(raceId).first();
+  if (existing) {
+    log.push(`  Sprint: already stored, skipping.`);
+    return;
+  }
+
+  await setTimeout(DELAY_MS);
+  const results = await fetchSprintResults(season, round);
+  if (results.length > 0) {
+    await upsertSprintEntries(db, raceId, results);
+    log.push(`  Sprint: stored ${results.length} entries.`);
+  } else {
+    log.push(`  Sprint: no results available yet.`);
+  }
+}
+
+// Sync race results. Always fetches from the API (race results can be corrected post-event).
+// Returns true if results were found and stored.
+async function syncRaceResults(db: D1Database, raceId: number, season: number, round: number, log: string[]): Promise<boolean> {
+  await setTimeout(DELAY_MS);
+  const results = await fetchResults(season, round);
+  if (results.length > 0) {
+    await upsertRaceEntries(db, raceId, results);
+    log.push(`  Race: stored ${results.length} entries.`);
+    return true;
+  }
+  log.push(`  Race: no results available yet.`);
+  return false;
+}
+
+// Standings cache passed between rounds so the previous round's "after" can be reused as the next round's "before"
+interface StandingsCache {
+  round: number;
+  driverStandings: JolpicaDriverStanding[];
+  constructorStandings: JolpicaConstructorStanding[];
+}
+
+// Sync standings snapshot before this race (i.e. standings after the previous round).
+// Uses the cache if available, otherwise fetches from the API.
+async function syncStandingsBeforeTheRace(
+  db: D1Database,
+  raceId: number,
+  season: number,
+  round: number,
+  log: string[],
+  cache: StandingsCache | null
+): Promise<void> {
+  const prevRound = round - 1;
+  let driverBefore: JolpicaDriverStanding[];
+  let constructorBefore: JolpicaConstructorStanding[];
+
+  if (cache?.round === prevRound) {
+    driverBefore = cache.driverStandings;
+    constructorBefore = cache.constructorStandings;
+    log.push(`  Before standings: using cached data from round ${prevRound}.`);
+  } else {
+    await setTimeout(DELAY_MS);
+    driverBefore = await fetchDriverStandings(season, prevRound);
+    await setTimeout(DELAY_MS);
+    constructorBefore = await fetchConstructorStandings(season, prevRound);
+    log.push(`  Before standings: fetched from API (round ${prevRound}).`);
+  }
+
+  if (driverBefore.length > 0 || constructorBefore.length > 0) {
+    await upsertStandingsSnapshots(db, raceId, 'before', driverBefore, constructorBefore);
+    log.push(`  Before standings stored (${driverBefore.length} drivers, ${constructorBefore.length} constructors).`);
+  } else {
+    log.push(`  Before standings: none available (round ${prevRound} — likely start of season).`);
+  }
+}
+
+// Sync standings snapshot after this race. Always fetches from the API.
+// Returns the fetched standings so they can be cached for the next round.
+async function syncStandingsAfterTheRace(
+  db: D1Database,
+  raceId: number,
+  season: number,
+  round: number,
+  log: string[]
+): Promise<StandingsCache | null> {
+  await setTimeout(DELAY_MS);
+  const driverAfter = await fetchDriverStandings(season, round);
+  await setTimeout(DELAY_MS);
+  const constructorAfter = await fetchConstructorStandings(season, round);
+
+  if (driverAfter.length > 0 || constructorAfter.length > 0) {
+    await upsertStandingsSnapshots(db, raceId, 'after', driverAfter, constructorAfter);
+    log.push(`  After standings stored (round ${round}: ${driverAfter.length} drivers, ${constructorAfter.length} constructors).`);
+    return { round, driverStandings: driverAfter, constructorStandings: constructorAfter };
+  }
+
+  log.push(`  After standings: none available for round ${round}, skipping.`);
+  return null;
+}
+
+// ---- Main sync function ----
+
 export interface SyncResult {
   season: number;
   racesProcessed: number;
@@ -252,165 +389,71 @@ export async function syncSeason(season: number, db: D1Database, fromRound = 1, 
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
   // Cache the last round's "after" standings so we can use them as the next round's "before"
-  let cachedDriverStandings: JolpicaDriverStanding[] = [];
-  let cachedConstructorStandings: JolpicaConstructorStanding[] = [];
-  let cachedRound = 0;
+  let standingsCache: StandingsCache | null = null;
 
   for (const race of races) {
     const round = parseInt(race.round);
-    
-    if (round < fromRound) {
-      continue;
-    }
 
-    if (toRound !== undefined && round > toRound) {
-      continue;
-    }
+    if (round < fromRound) continue;
+    if (toRound !== undefined && round > toRound) continue;
 
-    const raceDate = race.date;
     const raceLabel = `Round ${round}: ${race.raceName}`;
+    const isSprintWeekend = !!race.Sprint;
 
     // Upsert the race row regardless of completion
     const raceId = await upsertRace(db, season, race);
 
-    // Determine if the race is upcoming, imminent (within 3 days), or past
     const raceDateTime = race.time ? new Date(`${race.date}T${race.time}`) : new Date(`${race.date}T00:00:00Z`);
-    const msUntilRace = raceDateTime.getTime() - Date.now();
-    const isUpcoming = raceDate > today;
-    const isImminent = isUpcoming && msUntilRace <= 3 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const msUntilRace = raceDateTime.getTime() - now;
+    const isPastRaceTime = msUntilRace <= 0;
+    // "Race weekend" = within 3 days of race time (covers Thu/Fri practice through Sunday)
+    const isRaceWeekend = msUntilRace <= 3 * 24 * 60 * 60 * 1000;
+    const isUpcoming = race.date > today;
 
-    if (isUpcoming && !isImminent) {
-      log.push(`${raceLabel} — upcoming, skipping results.`);
+    if (isUpcoming && !isRaceWeekend) {
+      log.push(`${raceLabel} — upcoming, skipping.`);
       racesSkipped++;
-      await setTimeout(DELAY_MS);
       continue;
     }
 
-    if (isImminent) {
-      log.push(`${raceLabel} — imminent (within 30h), fetching qualifying results...`);
-      await setTimeout(DELAY_MS);
-      const qualiResults = await fetchQualifying(season, round);
-      if (qualiResults.length > 0) {
-        await upsertQualifyingEntries(db, raceId, qualiResults);
-        log.push(`  Stored ${qualiResults.length} qualifying entries.`);
-      } else {
-        log.push(`  No qualifying results yet.`);
-      }
+    if (!isPastRaceTime) {
+      // We're in the race weekend window but the race hasn't happened yet.
+      // Sync pre-race sessions only, skipping any that are already stored.
+      log.push(`${raceLabel} — race weekend in progress, syncing pre-race sessions...`);
 
-      // If it's a sprint weekend, also try to fetch sprint qualifying results
-      if (race.Sprint) {
-        await setTimeout(DELAY_MS);
-        const sprintQualiResults = await fetchSprintQualifying(season, round);
-        if (sprintQualiResults.length > 0) {
-          await upsertSprintQualifyingEntries(db, raceId, sprintQualiResults);
-          log.push(`  Stored ${sprintQualiResults.length} sprint qualifying entries.`);
-        } else {
-          log.push(`  No sprint qualifying results yet.`);
-        }
-      }
+      await syncQualifying(db, raceId, season, round, log);
 
-      racesSkipped++;
-      await setTimeout(DELAY_MS);
-      continue;
-    }
-
-    log.push(`${raceLabel} — fetching results...`);
-    await setTimeout(DELAY_MS);
-    const results = await fetchResults(season, round);
-
-    if (results.length === 0) {
-      log.push(`  No race results yet, checking for qualifying results...`);
-      await setTimeout(DELAY_MS);
-      const qualiResults = await fetchQualifying(season, round);
-      if (qualiResults.length > 0) {
-        await upsertQualifyingEntries(db, raceId, qualiResults);
-        log.push(`  Stored ${qualiResults.length} qualifying entries.`);
-      } else {
-        log.push(`  No qualifying results yet either, skipping.`);
-      }
-
-      // If sprint weekend, also fetch sprint results and sprint qualifying
-      if (race.Sprint) {
-        await setTimeout(DELAY_MS);
-        const sprintResults = await fetchSprintResults(season, round);
-        if (sprintResults.length > 0) {
-          await upsertSprintEntries(db, raceId, sprintResults);
-          log.push(`  Stored ${sprintResults.length} sprint entries.`);
-        }
-        await setTimeout(DELAY_MS);
-        const sprintQualiResults = await fetchSprintQualifying(season, round);
-        if (sprintQualiResults.length > 0) {
-          await upsertSprintQualifyingEntries(db, raceId, sprintQualiResults);
-          log.push(`  Stored ${sprintQualiResults.length} sprint qualifying entries.`);
-        }
+      if (isSprintWeekend) {
+        await syncSprintQualifying(db, raceId, season, round, log);
+        await syncSprintResults(db, raceId, season, round, log);
       }
 
       racesSkipped++;
       continue;
     }
 
-    await upsertRaceEntries(db, raceId, results);
-    log.push(`  Stored ${results.length} entries.`);
+    // Past race time: sync all sessions.
+    log.push(`${raceLabel} — past race time, syncing all sessions...`);
 
-    // If sprint weekend, also fetch and store sprint results and sprint qualifying
-    if (race.Sprint) {
-      await setTimeout(DELAY_MS);
-      const sprintResults = await fetchSprintResults(season, round);
-      if (sprintResults.length > 0) {
-        await upsertSprintEntries(db, raceId, sprintResults);
-        log.push(`  Stored ${sprintResults.length} sprint entries.`);
-      } else {
-        log.push(`  No sprint results available.`);
-      }
-      await setTimeout(DELAY_MS);
-      const sprintQualiResults = await fetchSprintQualifying(season, round);
-      if (sprintQualiResults.length > 0) {
-        await upsertSprintQualifyingEntries(db, raceId, sprintQualiResults);
-        log.push(`  Stored ${sprintQualiResults.length} sprint qualifying entries.`);
-      }
+    await syncQualifying(db, raceId, season, round, log);
+
+    if (isSprintWeekend) {
+      await syncSprintQualifying(db, raceId, season, round, log);
+      await syncSprintResults(db, raceId, season, round, log);
     }
 
-    // "before" standings: use cached "after" from previous round if available,
-    // otherwise fetch from API (covers the case where sync is resumed mid-season)
-    const prevRound = round - 1;
-    let driverBefore: JolpicaDriverStanding[];
-    let constructorBefore: JolpicaConstructorStanding[];
+    const hasRaceResults = await syncRaceResults(db, raceId, season, round, log);
 
-    if (cachedRound === prevRound) {
-      driverBefore = cachedDriverStandings;
-      constructorBefore = cachedConstructorStandings;
-      log.push(`  Before standings: using cached data from round ${prevRound}.`);
-    } else {
-      await setTimeout(DELAY_MS);
-      driverBefore = await fetchDriverStandings(season, prevRound);
-      await setTimeout(DELAY_MS);
-      constructorBefore = await fetchConstructorStandings(season, prevRound);
-      log.push(`  Before standings: fetched from API (round ${prevRound}).`);
+    if (!hasRaceResults) {
+      // Race results aren't in yet — treat as partially processed
+      racesSkipped++;
+      continue;
     }
 
-    if (driverBefore.length > 0 || constructorBefore.length > 0) {
-      await upsertStandingsSnapshots(db, raceId, 'before', driverBefore, constructorBefore);
-      log.push(`  Before standings stored (${driverBefore.length} drivers, ${constructorBefore.length} constructors).`);
-    } else {
-      log.push(`  No before standings available (round ${prevRound} — likely start of season).`);
-    }
-
-    // "after" standings: always fetch from API
-    await setTimeout(DELAY_MS);
-    const driverAfter = await fetchDriverStandings(season, round);
-    await setTimeout(DELAY_MS);
-    const constructorAfter = await fetchConstructorStandings(season, round);
-
-    if (driverAfter.length > 0 || constructorAfter.length > 0) {
-      await upsertStandingsSnapshots(db, raceId, 'after', driverAfter, constructorAfter);
-      log.push(`  After standings stored (round ${round}: ${driverAfter.length} drivers, ${constructorAfter.length} constructors).`);
-      // Cache for next round's "before"
-      cachedDriverStandings = driverAfter;
-      cachedConstructorStandings = constructorAfter;
-      cachedRound = round;
-    } else {
-      log.push(`  No after standings available for round ${round} — skipping.`);
-    }
+    await syncStandingsBeforeTheRace(db, raceId, season, round, log, standingsCache);
+    const newCache = await syncStandingsAfterTheRace(db, raceId, season, round, log);
+    if (newCache) standingsCache = newCache;
 
     racesProcessed++;
   }
