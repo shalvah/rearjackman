@@ -25,6 +25,65 @@ export function renderRaceDetail(
   const hasStandings = driversAfter.length > 0;
   const hasotherRaces = otherSeasons.length > 0;
 
+  // Build the list of available session tabs in chronological order
+  type SessionTab = { id: string; label: string; content: string };
+  const sessionTabs: SessionTab[] = [];
+
+  if (hasSprintQuali) {
+    sessionTabs.push({
+      id: 'sprint-quali',
+      label: 'Sprint Qualifying',
+      content: renderSprintQualiResults(sprintQualiEntries, race.season),
+    });
+  }
+  if (hasSprintResults) {
+    sessionTabs.push({
+      id: 'sprint',
+      label: 'Sprint',
+      content: renderSprintResults(sprintEntries, race.season),
+    });
+  }
+  if (hasQuali) {
+    sessionTabs.push({
+      id: 'quali',
+      label: 'Qualifying',
+      content: renderQualiResults(qualiEntries, race.season),
+    });
+  }
+  if (hasResults) {
+    sessionTabs.push({
+      id: 'race',
+      label: 'Race',
+      content: renderGridResults(entries, race.season, constructorsAfter),
+    });
+  }
+
+  // Default to the last (most recent/complete) tab, or the first if none
+  const defaultTabIndex = sessionTabs.length > 0 ? sessionTabs.length - 1 : 0;
+
+  const tabsHtml = sessionTabs.length > 1
+    ? `<div class="session-tabs" role="tablist">
+        ${sessionTabs.map((tab, i) =>
+          `<button class="session-tab-btn${i === defaultTabIndex ? ' active' : ''}"
+            role="tab"
+            aria-selected="${i === defaultTabIndex ? 'true' : 'false'}"
+            aria-controls="tab-panel-${tab.id}"
+            data-tab="${tab.id}">${tab.label}</button>`
+        ).join('\n        ')}
+      </div>`
+    : '';
+
+  const panelsHtml = sessionTabs.length > 0
+    ? sessionTabs.map((tab, i) =>
+        `<div id="tab-panel-${tab.id}"
+          class="session-tab-panel${i === defaultTabIndex ? ' active' : ''}"
+          role="tabpanel"
+          data-tab="${tab.id}">
+          ${tab.content}
+        </div>`
+      ).join('\n')
+    : '<p style="color:var(--muted)">Results not yet available.</p>';
+
   const body = `
     <div class="race-header">
       <div class="round-badge">ROUND ${race.round} &middot; ${race.season}</div>
@@ -39,19 +98,8 @@ export function renderRaceDetail(
       ${renderExternalLinks(race)}
     </div>
 
-    ${hasSprintResults
-      ? renderSprintResults(sprintEntries, race.season)
-      : hasSprintQuali
-        ? renderSprintQualiResults(sprintQualiEntries, race.season)
-        : ''
-    }
-
-    ${hasResults
-      ? renderGridResults(entries, race.season, constructorsAfter)
-      : hasQuali
-        ? renderQualiResults(qualiEntries, race.season)
-        : '<p style="color:var(--muted)">Results not yet available.</p>'
-    }
+    ${tabsHtml}
+    ${panelsHtml}
 
     ${hasStandings ? renderStandingsSection(race, driversBefore, constructorsBefore, driversAfter, constructorsAfter) : ''}
 
@@ -70,6 +118,20 @@ export function renderRaceDetail(
           }
         } catch(e) {}
       }
+
+      // Session tab switching
+      document.querySelectorAll('.session-tab-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          const tabId = btn.getAttribute('data-tab');
+          document.querySelectorAll('.session-tab-btn').forEach(function(b) {
+            b.classList.toggle('active', b.getAttribute('data-tab') === tabId);
+            b.setAttribute('aria-selected', b.getAttribute('data-tab') === tabId ? 'true' : 'false');
+          });
+          document.querySelectorAll('.session-tab-panel').forEach(function(panel) {
+            panel.classList.toggle('active', panel.getAttribute('data-tab') === tabId);
+          });
+        });
+      });
     </script>`;
 
   return layout(`${race.name} ${race.season}`, body, '', `<a href="/${race.season}">${race.season}</a> / Round ${race.round}`);
@@ -145,7 +207,6 @@ function renderQualiResults(entries: QualiEntry[], season: number): string {
   });
 
   return `
-    <h2>Qualifying</h2>
     <div class="collapsible-section" data-expanded="false">
       <div class="results-table-wrap">
         <table>
@@ -239,7 +300,6 @@ function renderGridResults(entries: RaceEntry[], season: number, constructorStan
   });
 
   return `
-    <h2>Grid &amp; Results</h2>
     <div class="collapsible-section" data-expanded="false">
       <div class="results-table-wrap">
         <table>
@@ -321,7 +381,6 @@ function renderSprintResults(entries: SprintEntry[], season: number): string {
   });
 
   return `
-    <h2>Sprint</h2>
     <div class="collapsible-section" data-expanded="false">
       <div class="results-table-wrap">
         <table>
@@ -391,7 +450,6 @@ function renderSprintQualiResults(entries: SprintQualiEntry[], season: number): 
   });
 
   return `
-    <h2>Sprint Qualifying</h2>
     <div class="collapsible-section" data-expanded="false">
       <div class="results-table-wrap">
         <table>

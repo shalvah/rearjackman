@@ -246,6 +246,38 @@ export const css = `
   .site-nav a:hover { color: var(--text); text-decoration: none; }
   .site-nav a.active { color: var(--accent); font-weight: 600; }
 
+  /* ---- Session tabs ---- */
+  .session-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .session-tab-btn {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    padding: 8px 18px;
+    color: var(--muted);
+    font-family: var(--font);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.1s, border-color 0.1s;
+  }
+  .session-tab-btn:hover { color: var(--text); }
+  .session-tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .session-tab-panel { display: none; }
+  .session-tab-panel.active { display: block; }
+
   /* ---- Mobile ---- */
   @media (max-width: 600px) {
     body { padding: 16px 12px 48px; }
