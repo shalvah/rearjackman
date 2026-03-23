@@ -7,6 +7,10 @@ export default {
     return route(request, env, ctx);
   },
 
+  // The scheduled sync runs every 20 minutes on Thursday to Monday (potential race weekend).
+  // It syncs results for the latest race, exiting if we're not in a race weekend.
+  // Note: To determine "race weekend", it checks the database,
+  // so it relies on an initial manual sync to populate the db with the schedule.
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     const now = Date.now();
     const season = new Date().getFullYear();
