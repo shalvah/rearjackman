@@ -5,6 +5,8 @@ export interface Env {
   SYNC_SECRET: string;
   SYNC_QUEUE: Queue<{ season: number; fromRound?: number; toRound?: number }>;
   CACHE: KVNamespace;
+  SENTRY_DSN: string;
+  CF_VERSION_METADATA: { id: string };
 }
 
 // ---- Database row types ----

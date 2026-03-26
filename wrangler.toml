@@ -33,6 +33,13 @@ migrations_dir = "migrations"
 enabled = true
 invocation_logs = true
 
+[vars]
+# Set SENTRY_DSN as a secret via: wrangler secret put SENTRY_DSN
+# Listed here for documentation purposes only; the actual value is stored as a secret.
+
+[version_metadata]
+binding = "CF_VERSION_METADATA"
+
 
 [[queues.producers]]
 queue = "rearjackman-sync"

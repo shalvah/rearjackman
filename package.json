@@ -13,5 +13,8 @@
     "@types/node": "^25.5.0",
     "typescript": "^5.5.0",
     "wrangler": "^4.69.0"
+  },
+  "dependencies": {
+    "@sentry/cloudflare": "^10.46.0"
   }
 }
