@@ -6,3 +6,6 @@ dist/
 .dev.vars
 *.pre.md
 .idea/
+
+# Sentry Config File
+.sentryclirc

@@ -4,12 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy": "wrangler deploy --outdir dist --upload-source-maps --var SENTRY_RELEASE:$(sentry-cli releases propose-version)",
     "build": "tsc --noEmit",
-    "sync:local": "curl \"http://localhost:8787/api/sync/2026\" -H \"X-Sync-Secret: dev-secret\""
+    "sync:local": "curl \"http://localhost:8787/api/sync/2026\" -H \"X-Sync-Secret: dev-secret\"",
+    "sentry:sourcemaps": "_SENTRY_RELEASE=$(sentry-cli releases propose-version) && sentry-cli releases new $_SENTRY_RELEASE --org=knuckles --project=rear-jackman && sentry-cli sourcemaps upload --org=knuckles --project=rear-jackman --release=$_SENTRY_RELEASE --strip-prefix dist/.. dist",
+    "postdeploy": "npm run sentry:sourcemaps"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240821.1",
+    "@sentry/cli": "^2.58.5",
     "@types/node": "^25.5.0",
     "typescript": "^5.5.0",
     "wrangler": "^4.69.0"
