@@ -61,7 +61,7 @@ export function renderRaceDetail(
   // Default to the last (most recent/complete) tab, or the first if none
   const defaultTabIndex = sessionTabs.length > 0 ? sessionTabs.length - 1 : 0;
 
-  const tabsHtml = sessionTabs.length > 1
+  const tabsHtml = sessionTabs.length > 0
     ? `<div class="session-tabs" role="tablist">
         ${sessionTabs.map((tab, i) =>
           `<button class="session-tab-btn${i === defaultTabIndex ? ' active' : ''}"
@@ -264,10 +264,10 @@ function renderGridResults(entries: RaceEntry[], season: number, constructorStan
     const pts = e.points > 0 ? e.points : '—';
     const driverLink = `<a href="/driver/${e.jolpica_driver_id}?season=${season}">${e.driver_name}</a>`;
     const driverDisplay = `${e.driver_code ? `<strong>${e.driver_code}</strong> ` : ''}${driverLink}`;
-    
+
     // Attempt to link constructor
     const constructorId = constructorIdMap.get(e.constructor);
-    const constructorDisplay = constructorId 
+    const constructorDisplay = constructorId
       ? `<a href="/constructor/${constructorId}?season=${season}">${escHtml(e.constructor)}</a>`
       : escHtml(e.constructor);
 
