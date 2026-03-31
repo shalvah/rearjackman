@@ -10,7 +10,6 @@ routes = [
 
 [triggers]
 crons = [
-  "*/20 * * * THU",
   "*/20 * * * FRI",
   "*/20 * * * SAT",
   "*/20 * * * SUN",

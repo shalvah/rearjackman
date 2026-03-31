@@ -60,7 +60,7 @@ export default Sentry.withSentry(
               // Cron fires every 20 min Thu–Mon; use a representative schedule.
               // Sentry monitors don't support day-of-week unions in a single crontab expression,
               // so we monitor at the per-20-min cadence (Sentry will alert on missed runs).
-              value: '*/20 * * * *',
+              value: '*/20 * * * FRI,SAT,SUN,MON',
             },
             checkinMargin: 5,   // minutes of grace before a run is considered missed
             maxRuntime: 10,     // minutes before a run is considered failed
